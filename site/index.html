@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>小小怪下士</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div id="gate" class="gate">
+    <div class="gate-card">
+      <div class="gate-icon">💌</div>
+      <p class="gate-hint">输入一个只有你们知道的数字</p>
+      <input id="gate-input" type="password" inputmode="numeric" placeholder="……" autocomplete="off">
+      <button id="gate-btn">打开</button>
+      <p id="gate-error" class="gate-error"></p>
+    </div>
+  </div>
+
+  <header class="site-header">
+    <h1>小小怪下士</h1>
+    <p class="site-sub">2025.11 – 2026.05</p>
+  </header>
+
+  <main id="chapters"></main>
+  <div id="hearts" aria-hidden="true"></div>
+
+  <script src="js/app.js"></script>
+</body>
+</html>
