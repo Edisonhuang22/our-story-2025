@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>一个彩蛋 · 大大怪将军与小小怪下士</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🥚</text></svg>">
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    /* ---------- 彩蛋页 ---------- */
+    .egg-page {
+      max-width: 720px;
+      margin: 0 auto;
+      padding: 72px 1.4rem 96px;
+      display: flex;
+      flex-direction: column;
+      gap: 2.2rem;
+      opacity: 0;
+    }
+    body.loaded .egg-page { animation: fadeOpacity 0.9s ease 0.2s both; }
+    .egg-top { text-align: center; }
+    .egg-big {
+      font-size: 64px;
+      line-height: 1;
+      cursor: pointer;
+      user-select: none;
+      display: inline-block;
+      animation: egg-hatch 1s cubic-bezier(0.34, 1.56, 0.64, 1) 0.6s both;
+    }
+    @keyframes egg-hatch {
+      0% { transform: scale(0.2) rotate(-30deg); opacity: 0; }
+      60% { transform: scale(1.15) rotate(8deg); opacity: 1; }
+      100% { transform: scale(1) rotate(0deg); opacity: 1; }
+    }
+    .egg-kicker {
+      margin-top: 1.1rem;
+      color: var(--accent-deep);
+      font-size: 0.85rem;
+      letter-spacing: 0.32em;
+      text-indent: 0.32em;
+    }
+    .egg-title {
+      margin-top: 0.6rem;
+      font-size: clamp(1.8rem, 6vw, 2.6rem);
+      font-weight: 900;
+      background: linear-gradient(180deg, #c22a63 0%, #ff9fc0 100%);
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+      color: transparent;
+    }
+    .egg-sub { margin-top: 0.5rem; color: var(--ink-soft); font-size: 0.9rem; }
+    .essay {
+      background: #fff;
+      border: 1.5px solid var(--border);
+      border-radius: 26px;
+      box-shadow: var(--shadow);
+      padding: 2rem 1.8rem 2.2rem;
+    }
+    .essay-head { text-align: center; margin-bottom: 1.6rem; }
+    .essay-date { color: var(--accent); font-weight: 600; font-size: 0.85rem; letter-spacing: 0.14em; }
+    .essay-title { margin-top: 0.35rem; font-size: 1.15rem; color: var(--ink); font-weight: 700; }
+    .essay-body { display: flex; flex-direction: column; gap: 1.1em; }
+    .essay-p { color: var(--ink-soft); font-size: 1.02rem; line-height: 2; text-align: justify; }
+    .essay-sign {
+      text-align: right;
+      color: var(--accent-deep);
+      font-weight: 600;
+    }
+    .egg-back {
+      align-self: center;
+      text-decoration: none;
+      color: var(--accent-deep);
+      font-size: 0.95rem;
+      letter-spacing: 0.12em;
+      padding: 0.65rem 1.4rem;
+      border: 1.5px solid var(--border);
+      border-radius: 999px;
+      background: #fff;
+      transition: filter 0.2s ease;
+    }
+    .egg-back:hover { filter: brightness(0.97); border-color: var(--accent); }
+    .egg-foot { text-align: center; color: #c9a9b6; font-size: 0.78rem; letter-spacing: 0.1em; margin-top: 0.2rem; }
+  </style>
+</head>
+<body>
+  <div id="gate" class="gate">
+    <div class="gate-card">
+      <div class="gate-icon">🥚</div>
+      <p class="gate-hint">这页也藏起来了，输入同一个数字</p>
+      <input id="gate-input" type="password" inputmode="numeric" placeholder="……" autocomplete="off">
+      <button id="gate-btn">打开</button>
+      <p id="gate-error" class="gate-error"></p>
+    </div>
+  </div>
+
+  <main class="egg-page">
+    <section class="egg-top">
+      <span class="egg-big" id="egg-big" title="点我一下试试">🥚</span>
+      <p class="egg-kicker">你发现了一个彩蛋</p>
+      <h1 class="egg-title">写给你的小作文</h1>
+      <p class="egg-sub">——一些想认真说给你听的话</p>
+    </section>
+
+    <article class="essay">
+      <header class="essay-head">
+        <p class="essay-date">2026.08.19</p>
+        <h2 class="essay-title">小作文</h2>
+      </header>
+            <div class="essay-body">
+        <p class="essay-p">小小学妹陈玉荣</p>
+        <p class="essay-p">好久不见喔~</p>
+        <p class="essay-p">想不到最终还是被你找到这个入口了，果然小学妹还是聪明！距离上一次写信已经过去好久了，这段时间发生了不少事，特别是在假期我们总会有摩擦，但好在都能选择面对问题好好处理。七夕对你来说肯定还是很意外，虽然以前两个人都说过我们不过这种除了生日以外的节日但是真要到来时我还是会去想好好准备一番，不能以过不过节日来评判对方喜不喜欢，但你这小脑袋肯定会比我更敏感当在朋友圈在其他地方看到别人过七夕，怎么能让你羡慕其他人呢！买礼物你这个笨蛋肯定又想着找个时间“还”给我，索性我就换别的方式继续表达我的爱吼吼。</p>
+        <p class="essay-p">每次翻看刚认识那阵子的聊天记录、照片总会感觉很开心，那时候有不开心会直接告诉对方，我们都能体会到对方很强烈的爱意，所以不用去顾虑对方到底喜不喜欢而决定要不要说，后来相处的事情多啦总会有不理解的点，但最重要的还是要信任对方，即使不理解但是也选择信任这样也会很顺很顺哒。人因为顾虑而犹豫做一件事是很正常的，但是只要愿意去做并逐渐的改变那两个人一定是不会走散的。比如我不是很理解为什么能告诉同学朋友但是不能告诉爸妈，但是我相信你一定会告诉爸爸妈妈，所以这件事虽然不理解但是觉得一定会完成所以我就不会因为这种事而内耗而去怀疑我们之间的感情。然后！关于我们什么时候公开我想直接在我去找你的时候我们不避嫌，直接走一起吃一起玩一起！我适应了准备好后找个节日或是去某个地方玩我们就发朋友圈。</p>
+        <p class="essay-p">我有想好好在一起，两个人在一起时我也不会喜欢除你以外的其他女生或对其有意思有好感，更不会允许其他女生来刻意接近我，听见了吗！所以你要是吃醋要是怀疑要是不高兴你不要觉得“反正我说了也没用，都是你说‘陈玉荣你该怎么怎么做’”而是要跟我说出来，尽管问题很尖锐但说出来后其实很小，因为我们都喜欢对方啊，当然能够明白对方为什么吃醋而且也愿意去哄，就比如那次我们即使说完了，但是到了第二天我又因为你期末考后吃饭那件事不开心，我觉得我还有话想说，虽然这种两性问题很尖锐但是重点就在于说出来这一瞬间，说出来后其实对方都能领会哒。所以以后不要有说了没用这种想法喔，我也有很多既是优点又是缺点的地方，但我一定是喜欢你的，我会好好改，我们都要好好说话不要把对方越推越远。即使吵得很凶很凶！但是也不要缩小对方之前的好放大对方的不好。</p>
+        <p class="essay-p">讲到这里也差不多该结束啦，以后还有很长很长一起陪伴的日子，我们要好好哒，大胆把爱告诉对方、相信对方。这是我第一次做网站，做的还很粗糙，特别是图片要加载好久好久，以及这些排版也没达到我真正想要体现的样子，以后一点一点继续优化~</p>
+        <p class="essay-p">纸短情长，不尽依依</p>
+        <p class="essay-p essay-sign">——皇叔皇叔</p>
+      </div>
+    </article>
+
+    <a class="egg-back" href="index.html">← 回到故事首页</a>
+    <p class="egg-foot">P.S. 能找到这里的人，一定认真看到了最后吧。</p>
+  </main>
+
+  <div id="hearts" aria-hidden="true"></div>
+
+  <script>
+    /* ---------- sha256（与首页同款密码门） ---------- */
+    function sha256(ascii) {
+      function rightRotate(value, amount) { return (value >>> amount) | (value << (32 - amount)); }
+      var mathPow = Math.pow, maxWord = mathPow(2, 32), result = '';
+      var words = [], asciiBitLength = ascii.length * 8;
+      var hash = sha256.h = sha256.h || [], k = sha256.k = sha256.k || [];
+      var primeCounter = k.length, isComposite = {}, i, j, candidate;
+      for (candidate = 2; primeCounter < 64; candidate++) {
+        if (!isComposite[candidate]) {
+          for (i = 0; i < 313; i += candidate) isComposite[i] = candidate;
+          hash[primeCounter] = (mathPow(candidate, 0.5) * maxWord) | 0;
+          k[primeCounter++] = (mathPow(candidate, 1 / 3) * maxWord) | 0;
+        }
+      }
+      ascii += '\x80';
+      while ((ascii.length % 64) - 56) ascii += '\x00';
+      for (i = 0; i < ascii.length; i++) {
+        j = ascii.charCodeAt(i);
+        if (j >> 8) return '';
+        words[i >> 2] |= j << (((3 - i) % 4) * 8);
+      }
+      words[words.length] = (asciiBitLength / maxWord) | 0;
+      words[words.length] = asciiBitLength;
+      for (j = 0; j < words.length;) {
+        var w = words.slice(j, (j += 16)), oldHash = hash;
+        hash = hash.slice(0, 8);
+        for (i = 0; i < 64; i++) {
+          var w15 = w[i - 15], w2 = w[i - 2];
+          var a = hash[0], e = hash[4];
+          var temp1 = hash[7] + (rightRotate(e, 6) ^ rightRotate(e, 11) ^ rightRotate(e, 25))
+            + ((e & hash[5]) ^ (~e & hash[6])) + k[i]
+            + (w[i] = (i < 16) ? w[i] : (w[i - 16] + (rightRotate(w15, 7) ^ rightRotate(w15, 18) ^ (w15 >>> 3))
+              + w[i - 7] + (rightRotate(w2, 17) ^ rightRotate(w2, 19) ^ (w2 >>> 10))) | 0);
+          var temp2 = (rightRotate(a, 2) ^ rightRotate(a, 13) ^ rightRotate(a, 22))
+            + ((a & hash[1]) ^ (a & hash[2]) ^ (hash[1] & hash[2]));
+          hash = [(temp1 + temp2) | 0].concat(hash);
+          hash[4] = (hash[4] + temp1) | 0;
+        }
+        for (i = 0; i < 8; i++) hash[i] = (hash[i] + oldHash[i]) | 0;
+      }
+      for (i = 0; i < 8; i++) {
+        for (j = 3; j + 1; j--) {
+          var b = (hash[i] >> (j * 8)) & 255;
+          result += ((b < 16) ? 0 : '') + b.toString(16);
+        }
+      }
+      return result;
+    }
+
+    var PASSWORD_HASH = '2c789f164e82993b3422581c8a4d70f1a643284a395e5111f1643509aee0caca'; // sha256('20251213')
+
+    (function initGate() {
+      var gate = document.getElementById('gate');
+      var input = document.getElementById('gate-input');
+      var btn = document.getElementById('gate-btn');
+      var err = document.getElementById('gate-error');
+      var card = gate.querySelector('.gate-card');
+
+      function unlock() {
+        gate.classList.add('hidden');
+        try { sessionStorage.setItem('unlocked', '1'); } catch (e) {}
+      }
+      function attempt() {
+        if (sha256(input.value) === PASSWORD_HASH) { unlock(); return; }
+        err.textContent = '不对哦，再想想';
+        card.classList.remove('shake');
+        void card.offsetWidth;
+        card.classList.add('shake');
+      }
+
+      var already = false;
+      try { already = sessionStorage.getItem('unlocked') === '1'; } catch (e) {}
+      if (already) { gate.classList.add('hidden'); return; }
+
+      btn.addEventListener('click', attempt);
+      input.addEventListener('keydown', function (e) { if (e.key === 'Enter') attempt(); });
+    })();
+
+    window.addEventListener('load', function () { document.body.classList.add('loaded'); });
+
+    /* 点一下鸡蛋孵小鸡 */
+    (function initEggClick() {
+      var egg = document.getElementById('egg-big');
+      var flipped = false;
+      egg.addEventListener('click', function () {
+        flipped = !flipped;
+        egg.textContent = flipped ? '🐣' : '🥚';
+      });
+    })();
+
+    /* 爱心粒子 */
+    (function makeHearts() {
+      var layer = document.getElementById('hearts');
+      for (var i = 0; i < 10; i++) {
+        var h = document.createElement('span');
+        h.className = 'heart';
+        h.textContent = '♥';
+        h.style.left = (Math.random() * 100) + '%';
+        h.style.fontSize = (8 + Math.random() * 10) + 'px';
+        h.style.animationDuration = (11 + Math.random() * 12) + 's';
+        h.style.animationDelay = (-Math.random() * 20) + 's';
+        layer.appendChild(h);
+      }
+    })();
+  </script>
+</body>
+</html>

@@ -136,20 +136,48 @@ function renderMarquee(allPhotos) {
   buildRow('marquee-row-2', row2);
 }
 
+function loadImg(img, url) {
+  img.dataset.tries = '0';
+  img.addEventListener('error', function onErr() {
+    var tries = parseInt(img.dataset.tries || '0', 10);
+    if (tries >= 2) {
+      img.removeEventListener('error', onErr);
+      img.classList.add('img-failed');
+      return;
+    }
+    img.dataset.tries = String(tries + 1);
+    img.src = url + (url.indexOf('?') >= 0 ? '&' : '?') + 'r=' + (tries + 1);
+  });
+  img.src = url;
+}
+
+var lazyImgObserver = new IntersectionObserver(function (entries) {
+  entries.forEach(function (en) {
+    if (!en.isIntersecting) return;
+    var img = en.target;
+    var url = img.dataset.src;
+    if (url) {
+      delete img.dataset.src;
+      loadImg(img, url);
+    }
+    lazyImgObserver.unobserve(img);
+  });
+}, { rootMargin: '400px 300px' });
+
 function buildRow(id, list) {
   var el = document.getElementById(id);
   list.forEach(function (p) {
     var d = document.createElement('div');
     d.className = 'marquee-tile';
     var img = document.createElement('img');
-    img.src = p.thumb;
+    img.dataset.src = p.thumb;
     img.alt = '';
     img.width = 560;
     img.height = 360;
-    img.loading = 'lazy';
     img.decoding = 'async';
     d.appendChild(img);
     el.appendChild(d);
+    lazyImgObserver.observe(img);
   });
   initDrag(el);
 }
@@ -215,18 +243,34 @@ function createStack(wrapEl, photos) {
       var c = document.createElement('div');
       c.className = 'photo-card';
       var img = document.createElement('img');
-      img.src = p.src;
       img.alt = '';
-      img.width = p.w;
-      img.height = p.h;
-      img.loading = 'lazy';
+      img.width = 640;
+      img.height = 812;
       img.decoding = 'async';
       c.appendChild(img);
       wrapEl.appendChild(c);
       cards.push(c);
     });
-    if (cards.length) cards[0].querySelector('img').loading = 'eager';
   }
+
+  function ensureTopLoaded() {
+    for (var k = 0; k < Math.min(3, n); k++) {
+      var idx = order[k];
+      var img = cards[idx].querySelector('img');
+      if (!img.dataset.loaded) {
+        img.dataset.loaded = '1';
+        loadImg(img, photos[idx].card);
+      }
+    }
+  }
+
+  var deckIO = new IntersectionObserver(function (entries) {
+    if (entries[0].isIntersecting) {
+      ensureTopLoaded();
+      deckIO.disconnect();
+    }
+  }, { rootMargin: '800px 0px' });
+  deckIO.observe(wrapEl);
 
   function stackStyle(pos) {
     if (pos === 0) return { t: 'translate(0px,0px) rotate(0deg)', o: 1, z: 30 };
@@ -259,6 +303,7 @@ function createStack(wrapEl, photos) {
     c.style.opacity = '0';
     order.push(order.shift());
     notify(order[0]);
+    ensureTopLoaded();
     setTimeout(function () {
       c.style.transition = 'none';
       var s = stackStyle(order.indexOf(top));
@@ -286,6 +331,7 @@ function createStack(wrapEl, photos) {
     c.style.transform = 'translate(0px,0px) rotate(0deg)';
     c.style.opacity = '1';
     notify(order[0]);
+    ensureTopLoaded();
     setTimeout(function () { applyPositions(); animating = false; }, 340);
   }
 
