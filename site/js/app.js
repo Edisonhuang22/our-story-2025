@@ -109,7 +109,6 @@ window.addEventListener('load', function () {
 
 /* ---------- 数据加载 ---------- */
 var chaptersEl = document.getElementById('chapters');
-var marqueeSectionTop = 0;
 
 Promise.all([
   fetch('data/events.json').then(function (r) { return r.json(); }),
@@ -124,25 +123,20 @@ Promise.all([
   });
   renderChapters(events, photosByFolder);
   renderMarquee(allPhotos);
-  measureMarquee();
   renderAboutLine();
-  marqueeSectionTop = document.getElementById('photos').getBoundingClientRect().top + window.scrollY;
-  onMarqueeScroll();
 }).catch(function (e) {
   chaptersEl.innerHTML = '<p style="text-align:center;padding:3rem">加载失败：' + e.message + '</p>';
 });
 
-/* ---------- 照片跑马灯 ---------- */
-var marqueeRows = [];
-
+/* ---------- 照片横向滑动区 ---------- */
 function renderMarquee(allPhotos) {
   var row1 = [], row2 = [];
   allPhotos.forEach(function (p, i) { (i % 2 === 0 ? row1 : row2).push(p); });
-  buildRow('marquee-row-1', row1, 1);
-  buildRow('marquee-row-2', row2, -1);
+  buildRow('marquee-row-1', row1);
+  buildRow('marquee-row-2', row2);
 }
 
-function buildRow(id, list, dir) {
+function buildRow(id, list) {
   var el = document.getElementById(id);
   for (var t = 0; t < 3; t++) {
     list.forEach(function (p) {
@@ -157,44 +151,33 @@ function buildRow(id, list, dir) {
       el.appendChild(d);
     });
   }
-  marqueeRows.push({ el: el, list: list, dir: dir, setW: 0 });
+  initDrag(el);
 }
 
-function measureMarquee() {
-  marqueeRows.forEach(function (r) {
-    var tile = r.el.firstElementChild;
-    r.setW = r.list.length * ((tile ? tile.offsetWidth : 280) + 12);
+function initDrag(row) {
+  var down = false, startX = 0, startLeft = 0;
+  row.style.cursor = 'grab';
+  row.addEventListener('pointerdown', function (e) {
+    if (e.pointerType !== 'mouse' || e.button !== 0) return;
+    down = true;
+    startX = e.clientX;
+    startLeft = row.scrollLeft;
+    row.style.cursor = 'grabbing';
+    try { row.setPointerCapture(e.pointerId); } catch (err) {}
   });
-}
-
-function onMarqueeScroll() {
-  var offset = (window.scrollY - marqueeSectionTop + window.innerHeight) * 0.3;
-  marqueeRows.forEach(function (r) {
-    if (!r.setW) return;
-    var x = (offset - 200) % r.setW;
-    if (x < 0) x += r.setW;
-    r.el.style.transform = 'translateX(' + (r.dir * x) + 'px)';
+  row.addEventListener('pointermove', function (e) {
+    if (!down) return;
+    row.scrollLeft = startLeft - (e.clientX - startX);
   });
+  function stop() { down = false; row.style.cursor = 'grab'; }
+  row.addEventListener('pointerup', stop);
+  row.addEventListener('pointercancel', stop);
 }
-
-var marqueeTicking = false;
-window.addEventListener('scroll', function () {
-  if (!marqueeTicking) {
-    marqueeTicking = true;
-    requestAnimationFrame(function () { onMarqueeScroll(); marqueeTicking = false; });
-  }
-}, { passive: true });
-
-window.addEventListener('resize', function () {
-  measureMarquee();
-  marqueeSectionTop = document.getElementById('photos').getBoundingClientRect().top + window.scrollY;
-  positionCards();
-});
 
 /* ---------- 过渡段逐字显现 ---------- */
 function renderAboutLine() {
   var el = document.getElementById('about-text');
-  var text = '88 张照片，从 2025 年 11 月到 2026 年 5 月。';
+  var text = '开始了！！！';
   var spans = [];
   text.split('').forEach(function (ch) {
     var s = document.createElement('span');
@@ -360,8 +343,7 @@ function makeTextPanel(chapter) {
   };
 }
 
-/* ---------- 渲染章节（sticky 叠压卡片） ---------- */
-var cardList = [];
+/* ---------- 渲染章节（卡片列表） ---------- */
 
 function renderChapters(events, photosByFolder) {
   var total = events.length;
@@ -430,17 +412,6 @@ function renderChapters(events, photosByFolder) {
       counter.textContent = '0 / 0';
     }
 
-    cardList.push({ card: card, idx: idx, total: total });
-  });
-  positionCards();
-}
-
-function positionCards() {
-  var mobile = window.innerWidth < 760;
-  cardList.forEach(function (item) {
-    item.card.style.top = (mobile ? 16 + item.idx * 8 : 24 + item.idx * 10) + 'px';
-    item.card.style.transform = 'scale(' + (1 - (item.total - 1 - item.idx) * 0.015) + ')';
-    item.card.style.zIndex = item.idx + 1;
   });
 }
 

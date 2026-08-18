@@ -69,23 +69,6 @@ body {
   overflow-x: clip;
   padding: 0 24px;
 }
-.hero-nav {
-  display: flex;
-  justify-content: space-between;
-  padding: 22px 12px 0;
-  position: relative;
-  z-index: 6;
-}
-.hero-nav a {
-  color: var(--accent-deep);
-  text-decoration: none;
-  font-weight: 500;
-  font-size: clamp(0.8rem, 1.4vw, 1.15rem);
-  letter-spacing: 0.2em;
-  transition: opacity 0.2s ease;
-}
-.hero-nav a:hover { opacity: 0.65; }
-
 .hero-heading-wrap {
   flex: 1;
   display: flex;
@@ -95,7 +78,7 @@ body {
   padding: 2vh 0;
 }
 .hero-heading {
-  font-size: clamp(3.2rem, 13vw, 11.5rem);
+  font-size: clamp(2rem, 8vw, 7.5rem);
   font-weight: 900;
   white-space: nowrap;
   letter-spacing: 0.02em;
@@ -161,8 +144,7 @@ body {
 .pill-btn:hover { filter: brightness(1.07); }
 
 /* 载入淡入 */
-.hero-nav, .hero-heading-wrap, .hero-tag, .pill-btn { opacity: 0; }
-body.loaded .hero-nav { animation: fadeUp 0.9s cubic-bezier(0.25, 0.1, 0.25, 1) 0s both; }
+.hero-heading-wrap, .hero-tag, .pill-btn { opacity: 0; }
 body.loaded .hero-heading-wrap { animation: fadeUp 0.9s cubic-bezier(0.25, 0.1, 0.25, 1) 0.15s both; }
 body.loaded .hero-tag { animation: fadeUp 0.9s cubic-bezier(0.25, 0.1, 0.25, 1) 0.35s both; }
 body.loaded .pill-btn { animation: fadeUp 0.9s cubic-bezier(0.25, 0.1, 0.25, 1) 0.5s both; }
@@ -182,21 +164,28 @@ body.loaded .hero-portrait { animation: fadeOpacity 1s ease 0.6s both; }
 .marquee-row {
   display: flex;
   gap: 12px;
-  width: max-content;
-  will-change: transform;
+  width: 100%;
+  user-select: none;
+  overflow-x: auto;
+  scroll-snap-type: x proximity;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  padding: 8px 0 14px;
 }
+.marquee-row::-webkit-scrollbar { display: none; }
 .marquee-row + .marquee-row { margin-top: 12px; }
 .marquee-tile {
   width: 280px;
   height: 180px;
   flex-shrink: 0;
+  scroll-snap-align: start;
   border-radius: 18px;
   overflow: hidden;
   border: 3px solid #fff;
   box-shadow: var(--shadow);
   background: #fde7ef;
 }
-.marquee-tile img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.marquee-tile img { width: 100%; height: 100%; object-fit: cover; display: block; pointer-events: none; -webkit-user-drag: none; }
 
 /* ---------- 过渡段 ---------- */
 .about-line {
@@ -218,9 +207,8 @@ body.loaded .hero-portrait { animation: fadeOpacity 1s ease 0.6s both; }
 
 /* ---------- 章节叠压卡片 ---------- */
 .projects { max-width: 1080px; margin: 0 auto; padding: 0 1.25rem 6rem; }
-.card-slot { height: 85vh; position: relative; }
+.card-slot { margin-bottom: 3.2rem; }
 .chapter-card {
-  position: sticky;
   margin: 0 auto;
   max-width: 980px;
   background: #fff;
@@ -228,7 +216,6 @@ body.loaded .hero-portrait { animation: fadeOpacity 1s ease 0.6s both; }
   border-radius: 26px;
   box-shadow: var(--shadow);
   padding: 1.6rem 1.8rem 1.8rem;
-  transform-origin: top center;
 }
 .card-head { display: flex; align-items: center; gap: 1.1rem; margin-bottom: 1.1rem; }
 .card-num {
@@ -307,9 +294,9 @@ body.loaded .hero-portrait { animation: fadeOpacity 1s ease 0.6s both; }
 
 @media (max-width: 760px) {
   .hero { padding: 0 16px; }
-  .hero-heading { font-size: 12.5vw; }
+  .hero-heading { font-size: 8vw; }
   .marquee-tile { width: 200px; height: 130px; }
-  .card-slot { height: 88vh; }
+  .card-slot { margin-bottom: 2.6rem; }
   .chapter-card { padding: 1.2rem 1.1rem 1.3rem; }
   .card-head { gap: 0.7rem; }
   .card-num { font-size: 2.6rem; -webkit-text-stroke-width: 1.5px; }
