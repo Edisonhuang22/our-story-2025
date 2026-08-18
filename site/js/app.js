@@ -138,19 +138,19 @@ function renderMarquee(allPhotos) {
 
 function buildRow(id, list) {
   var el = document.getElementById(id);
-  for (var t = 0; t < 3; t++) {
-    list.forEach(function (p) {
-      var d = document.createElement('div');
-      d.className = 'marquee-tile';
-      var img = document.createElement('img');
-      img.src = p.src;
-      img.alt = '';
-      img.loading = 'lazy';
-      img.decoding = 'async';
-      d.appendChild(img);
-      el.appendChild(d);
-    });
-  }
+  list.forEach(function (p) {
+    var d = document.createElement('div');
+    d.className = 'marquee-tile';
+    var img = document.createElement('img');
+    img.src = p.thumb;
+    img.alt = '';
+    img.width = 560;
+    img.height = 360;
+    img.loading = 'lazy';
+    img.decoding = 'async';
+    d.appendChild(img);
+    el.appendChild(d);
+  });
   initDrag(el);
 }
 
@@ -217,6 +217,8 @@ function createStack(wrapEl, photos) {
       var img = document.createElement('img');
       img.src = p.src;
       img.alt = '';
+      img.width = p.w;
+      img.height = p.h;
       img.loading = 'lazy';
       img.decoding = 'async';
       c.appendChild(img);
