@@ -17,12 +17,38 @@
     </div>
   </div>
 
-  <header class="site-header">
-    <h1>小小怪下士</h1>
-    <p class="site-sub">2025.11 – 2026.05</p>
+  <header class="hero" id="top">
+    <nav class="hero-nav" data-fade="0">
+      <a href="#top">故事</a>
+      <a href="#photos">照片</a>
+      <a href="#chapters">时间线</a>
+      <a href="#about-line">一句话</a>
+    </nav>
+    <div class="hero-heading-wrap" data-fade="0.15">
+      <h1 class="hero-heading">小小怪下士</h1>
+    </div>
+    <div class="hero-portrait-pos">
+      <div class="hero-portrait" id="hero-portrait" data-fade="0.6">
+        <img src="img/2026-4-21/1.jpg" alt="">
+      </div>
+    </div>
+    <div class="hero-bottom">
+      <p class="hero-tag" data-fade="0.35">2025.11 – 2026.05<br><span class="hero-tag-sub">88 张照片</span></p>
+      <a class="pill-btn" href="#photos" data-fade="0.5">往下看 ↓</a>
+    </div>
   </header>
 
-  <main id="chapters"></main>
+  <section class="marquee-section" id="photos">
+    <div class="marquee-row" id="marquee-row-1"></div>
+    <div class="marquee-row" id="marquee-row-2"></div>
+  </section>
+
+  <section class="about-line" id="about-line">
+    <p id="about-text"></p>
+  </section>
+
+  <section class="projects" id="chapters"></section>
+
   <div id="hearts" aria-hidden="true"></div>
 
   <script src="js/app.js"></script>

@@ -79,19 +79,144 @@ var PASSWORD_HASH = '2c789f164e82993b3422581c8a4d70f1a643284a395e5111f1643509aee
   input.addEventListener('keydown', function (e) { if (e.key === 'Enter') attempt(); });
 })();
 
+/* ---------- Hero 载入淡入 ---------- */
+window.addEventListener('load', function () {
+  document.body.classList.add('loaded');
+});
+
+/* ---------- Hero 主图磁性跟随 ---------- */
+(function initMagnet() {
+  var el = document.getElementById('hero-portrait');
+  if (!el) return;
+  var leaving = true;
+  document.addEventListener('mousemove', function (e) {
+    var r = el.getBoundingClientRect();
+    var pad = 150;
+    var inside = e.clientX > r.left - pad && e.clientX < r.right + pad && e.clientY > r.top - pad && e.clientY < r.bottom + pad;
+    if (inside) {
+      var dx = e.clientX - (r.left + r.width / 2);
+      var dy = e.clientY - (r.top + r.height / 2);
+      el.style.transition = 'transform 0.3s ease-out';
+      el.style.transform = 'translate3d(' + (dx / 3) + 'px,' + (dy / 3) + 'px,0)';
+      leaving = true;
+    } else if (leaving) {
+      leaving = false;
+      el.style.transition = 'transform 0.6s ease-in-out';
+      el.style.transform = 'translate3d(0,0,0)';
+    }
+  });
+})();
+
 /* ---------- 数据加载 ---------- */
 var chaptersEl = document.getElementById('chapters');
+var marqueeSectionTop = 0;
 
 Promise.all([
   fetch('data/events.json').then(function (r) { return r.json(); }),
   fetch('data/photos.json').then(function (r) { return r.json(); })
 ]).then(function (res) {
-  var events = res[0], photosByFolder = {};
-  res[1].chapters.forEach(function (c) { photosByFolder[c.folder] = c.photos; });
+  var events = res[0];
+  var photosByFolder = {};
+  var allPhotos = [];
+  res[1].chapters.forEach(function (c) {
+    photosByFolder[c.folder] = c.photos;
+    c.photos.forEach(function (p) { allPhotos.push(p); });
+  });
   renderChapters(events, photosByFolder);
+  renderMarquee(allPhotos);
+  measureMarquee();
+  renderAboutLine();
+  marqueeSectionTop = document.getElementById('photos').getBoundingClientRect().top + window.scrollY;
+  onMarqueeScroll();
 }).catch(function (e) {
   chaptersEl.innerHTML = '<p style="text-align:center;padding:3rem">加载失败：' + e.message + '</p>';
 });
+
+/* ---------- 照片跑马灯 ---------- */
+var marqueeRows = [];
+
+function renderMarquee(allPhotos) {
+  var row1 = [], row2 = [];
+  allPhotos.forEach(function (p, i) { (i % 2 === 0 ? row1 : row2).push(p); });
+  buildRow('marquee-row-1', row1, 1);
+  buildRow('marquee-row-2', row2, -1);
+}
+
+function buildRow(id, list, dir) {
+  var el = document.getElementById(id);
+  for (var t = 0; t < 3; t++) {
+    list.forEach(function (p) {
+      var d = document.createElement('div');
+      d.className = 'marquee-tile';
+      var img = document.createElement('img');
+      img.src = p.src;
+      img.alt = '';
+      img.loading = 'lazy';
+      img.decoding = 'async';
+      d.appendChild(img);
+      el.appendChild(d);
+    });
+  }
+  marqueeRows.push({ el: el, list: list, dir: dir, setW: 0 });
+}
+
+function measureMarquee() {
+  marqueeRows.forEach(function (r) {
+    var tile = r.el.firstElementChild;
+    r.setW = r.list.length * ((tile ? tile.offsetWidth : 280) + 12);
+  });
+}
+
+function onMarqueeScroll() {
+  var offset = (window.scrollY - marqueeSectionTop + window.innerHeight) * 0.3;
+  marqueeRows.forEach(function (r) {
+    if (!r.setW) return;
+    var x = (offset - 200) % r.setW;
+    if (x < 0) x += r.setW;
+    r.el.style.transform = 'translateX(' + (r.dir * x) + 'px)';
+  });
+}
+
+var marqueeTicking = false;
+window.addEventListener('scroll', function () {
+  if (!marqueeTicking) {
+    marqueeTicking = true;
+    requestAnimationFrame(function () { onMarqueeScroll(); marqueeTicking = false; });
+  }
+}, { passive: true });
+
+window.addEventListener('resize', function () {
+  measureMarquee();
+  marqueeSectionTop = document.getElementById('photos').getBoundingClientRect().top + window.scrollY;
+  positionCards();
+});
+
+/* ---------- 过渡段逐字显现 ---------- */
+function renderAboutLine() {
+  var el = document.getElementById('about-text');
+  var text = '88 张照片，从 2025 年 11 月到 2026 年 5 月。';
+  var spans = [];
+  text.split('').forEach(function (ch) {
+    var s = document.createElement('span');
+    s.className = 'achar';
+    s.textContent = ch;
+    el.appendChild(s);
+    spans.push(s);
+  });
+  var done = false;
+  var observer = new IntersectionObserver(function (entries) {
+    entries.forEach(function (en) {
+      if (en.isIntersecting && !done) {
+        done = true;
+        spans.forEach(function (s, i) {
+          setTimeout(function () { s.classList.add('lit'); }, 40 * i);
+        });
+        observer.disconnect();
+      }
+    });
+  }, { threshold: 0.5 });
+  observer.observe(el);
+}
 
 /* ---------- 叠放组件 ---------- */
 function createStack(wrapEl, photos) {
@@ -217,10 +342,8 @@ function makeTextPanel(chapter) {
   panel.className = 'desc-panel';
   panel.innerHTML =
     '<div class="desc-date"></div>' +
-    '<div class="desc-title"></div>' +
     '<div class="desc-text"></div>';
   var dateEl = panel.querySelector('.desc-date');
-  var titleEl = panel.querySelector('.desc-title');
   var textEl = panel.querySelector('.desc-text');
   return {
     el: panel,
@@ -229,7 +352,6 @@ function makeTextPanel(chapter) {
       panel.classList.add('fade-out');
       setTimeout(function () {
         dateEl.textContent = chapter.date;
-        titleEl.textContent = chapter.title;
         textEl.textContent = chapter.text;
         panel.classList.remove('fade-out');
         panel.classList.add('fade-in');
@@ -238,14 +360,44 @@ function makeTextPanel(chapter) {
   };
 }
 
-/* ---------- 渲染章节 ---------- */
+/* ---------- 渲染章节（sticky 叠压卡片） ---------- */
+var cardList = [];
+
 function renderChapters(events, photosByFolder) {
-  events.forEach(function (ev) {
+  var total = events.length;
+  events.forEach(function (ev, idx) {
     var photos = photosByFolder[ev.folder] || [];
-    var section = document.createElement('section');
-    section.className = 'chapter';
-    var layout = document.createElement('div');
-    layout.className = 'chapter-layout';
+    var slot = document.createElement('div');
+    slot.className = 'card-slot';
+
+    var card = document.createElement('article');
+    card.className = 'chapter-card';
+
+    var head = document.createElement('div');
+    head.className = 'card-head';
+    var num = document.createElement('span');
+    num.className = 'card-num';
+    num.textContent = (idx + 1 < 10 ? '0' : '') + (idx + 1);
+    var meta = document.createElement('div');
+    meta.className = 'card-meta';
+    var dateEl = document.createElement('div');
+    dateEl.className = 'desc-date';
+    dateEl.textContent = ev.date;
+    var titleEl = document.createElement('h3');
+    titleEl.className = 'desc-title';
+    titleEl.textContent = ev.title;
+    meta.appendChild(dateEl);
+    meta.appendChild(titleEl);
+    var count = document.createElement('span');
+    count.className = 'card-count';
+    count.textContent = photos.length + ' PHOTOS';
+    head.appendChild(num);
+    head.appendChild(meta);
+    head.appendChild(count);
+    card.appendChild(head);
+
+    var body = document.createElement('div');
+    body.className = 'card-body';
     var stackSide = document.createElement('div');
     stackSide.className = 'stack-side';
     var wrap = document.createElement('div');
@@ -265,10 +417,11 @@ function renderChapters(events, photosByFolder) {
     stackSide.appendChild(controls);
 
     var panel = makeTextPanel(ev);
-    layout.appendChild(stackSide);
-    layout.appendChild(panel.el);
-    section.appendChild(layout);
-    chaptersEl.appendChild(section);
+    body.appendChild(stackSide);
+    body.appendChild(panel.el);
+    card.appendChild(body);
+    slot.appendChild(card);
+    chaptersEl.appendChild(slot);
 
     if (photos.length) {
       createStack(wrap, photos).bindControls(prevBtn, nextBtn, counter, panel);
@@ -276,17 +429,19 @@ function renderChapters(events, photosByFolder) {
       panel.show();
       counter.textContent = '0 / 0';
     }
-  });
 
-  var observer = new IntersectionObserver(function (entries) {
-    entries.forEach(function (en) {
-      if (en.isIntersecting) {
-        en.target.classList.add('visible');
-        observer.unobserve(en.target);
-      }
-    });
-  }, { threshold: 0.12 });
-  document.querySelectorAll('.chapter').forEach(function (ch) { observer.observe(ch); });
+    cardList.push({ card: card, idx: idx, total: total });
+  });
+  positionCards();
+}
+
+function positionCards() {
+  var mobile = window.innerWidth < 760;
+  cardList.forEach(function (item) {
+    item.card.style.top = (mobile ? 16 + item.idx * 8 : 24 + item.idx * 10) + 'px';
+    item.card.style.transform = 'scale(' + (1 - (item.total - 1 - item.idx) * 0.015) + ')';
+    item.card.style.zIndex = item.idx + 1;
+  });
 }
 
 /* ---------- 爱心粒子 ---------- */
