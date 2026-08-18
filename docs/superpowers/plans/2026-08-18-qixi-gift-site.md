@@ -137,7 +137,7 @@ if __name__ == "__main__":
 & "C:\Users\48478\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe" <ws>\tools\process_photos.py
 ```
 
-Expected: 输出 29 个 `[完成]`、3 个 `[跳过空目录]`（2026.5.2 / 2026.5.18 / 2026.5.19），最终 `共 88 张`。
+Expected: 输出 29 个 `[完成]`，最终 `共 88 张`。
 
 - [ ] **Step 3: 抽查产物**
 
@@ -226,7 +226,7 @@ git commit -m "content: 29 chapter texts"
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>我们的故事</title>
+  <title>小小怪下士</title>
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
@@ -241,7 +241,7 @@ git commit -m "content: 29 chapter texts"
   </div>
 
   <header class="site-header">
-    <h1>我们的故事</h1>
+    <h1>小小怪下士</h1>
     <p class="site-sub">2025.11 – 2026.05</p>
   </header>
 
@@ -459,7 +459,7 @@ function sha256(ascii) {
 }
 
 /* ---------- 密码门 ---------- */
-var PASSWORD_HASH = '7746b8d8388bc30a9f320d8462740b5a1dd35df753b227a73e99dda04eb05228'; // sha256('20251201')
+var PASSWORD_HASH = '2c789f164e82993b3422581c8a4d70f1a643284a395e5111f1643509aee0caca'; // sha256('20251213')
 
 (function initGate() {
   var gate = document.getElementById('gate');
@@ -735,8 +735,8 @@ Start-Process -FilePath "C:\Users\48478\.cache\codex-runtimes\codex-primary-runt
 
 复用浏览器运行时（`globalThis.agent/browser`，若绑定丢失按 browser 技能重建），新建标签页打开 `http://localhost:8901/`，逐项断言：
 
-1. `h1` 文本 = `我们的故事`。
-2. 密码门：`#gate` 可见；输入错误值（`000000`）点 `#gate-btn` 后 `#gate-error` 非空且 `#gate` 仍可见；输入 `20251201` 后 `#gate` 含 `hidden` 类。
+1. `h1` 文本 = `小小怪下士`。
+2. 密码门：`#gate` 可见；输入错误值（`000000`）点 `#gate-btn` 后 `#gate-error` 非空且 `#gate` 仍可见；输入 `20251213` 后 `#gate` 含 `hidden` 类。
 3. `.chapter` 数量 = 29；`.photo-card` 数量 = 88。
 4. 图片全部加载：滚动到底触发 lazy load 后 `Array.from(document.images).every(i => i.complete && i.naturalWidth > 0)` 为 true。
 5. 第 5 章（2025.12.12，4 张照片）：点击其 `.stack-wrap`，等待 500ms，其 `.deck-counter` 文本 = `2 / 4`。
