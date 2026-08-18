@@ -831,3 +831,14 @@ Expected: `HTTP 200`。打开该 URL 与应用内浏览器各验证一次（密�
 - [ ] **Step 5: 交付**
 
 把链接 + 密码交给用户，并说明：公开仓库 + 密码页是免费方案下最稳妥的隐私组合；删除仓库即可下线。
+
+### Task 9: v2 版式改造（作品集式排版 + 粉色系）
+
+**Files:**
+- Modify: `<ws>/site/index.html`（新结构：hero + marquee + about-line + chapters）
+- Modify: `<ws>/site/css/style.css`（重写版式，保留 gate/hearts/stack 样式）
+- Modify: `<ws>/site/js/app.js`（新增 marquee/magnet/char-reveal/sticky 卡片渲染）
+
+要点（实现即文档，结构见上方 v2 设计）：hero 磁性主图注意用外层定位 + 内层 transform，避免与居中 transform 冲突；跑马灯行宽 = 集合内照片数 × (280+12)px，x = (offset−200) mod setW，offset = (scrollY − sectionTop + innerHeight) × 0.3，第 1 排正方向、第 2 排负方向；卡片 top 与 scale 由 JS 内联设置；验证清单同 Task 7 另加：marquee 瓦片数 = 88×3、滚动后两排 transform 非空、about-text 子 span 数 ≈ 22、hero 主图加载正常。
+
+验证通过后：本地预览交用户确认 → `git commit` → 推送到 main → 等 Actions 部署完成 → 验证线上 URL。
