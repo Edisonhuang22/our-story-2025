@@ -22,45 +22,214 @@ body {
   min-height: 100vh;
   overflow-x: hidden;
 }
+body.gate-open { overflow: hidden; }
 
-/* ---------- 密码页 ---------- */
+/* ---------- 会合入口 ---------- */
 .gate {
   position: fixed; inset: 0; z-index: 100;
   display: flex; align-items: center; justify-content: center;
-  background: linear-gradient(160deg, #ebe6f8, #fff8ed);
-  transition: opacity 0.5s ease;
+  padding: 16px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  background:
+    radial-gradient(circle at 14% 20%, rgba(255, 255, 255, 0.92) 0 2px, transparent 3px),
+    radial-gradient(circle at 78% 16%, rgba(118, 105, 182, 0.2) 0 3px, transparent 4px),
+    radial-gradient(circle at 88% 72%, rgba(217, 147, 140, 0.2) 0 4px, transparent 5px),
+    linear-gradient(145deg, #e8e3f8, #fff9ef 72%);
+  transition: opacity 0.6s ease;
 }
 .gate.hidden { opacity: 0; pointer-events: none; }
 .gate-card {
-  background: rgba(255, 255, 255, 0.88);
-  border: 1px solid var(--border);
-  border-radius: 24px;
-  padding: 2.4rem 2rem;
-  width: min(340px, 86vw);
+  width: min(650px, 100%);
+  padding: clamp(1.8rem, 6vw, 2.7rem) clamp(1.25rem, 6vw, 2.2rem) 1.7rem;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.82);
+  border-radius: 32px;
+  background: rgba(255, 255, 255, 0.66);
+  backdrop-filter: blur(18px);
   text-align: center;
-  box-shadow: var(--shadow);
+  box-shadow: 0 28px 80px rgba(82, 68, 122, 0.18), inset 0 1px 0 #fff;
+  transition: transform 0.5s ease, opacity 0.5s ease;
 }
-.gate-icon { font-size: 44px; }
-.gate-hint { color: var(--ink-soft); font-size: 0.9rem; margin: 0.8rem 0 1.2rem; }
-#gate-input {
-  width: 100%; padding: 0.7rem 1rem; font-size: 1rem; text-align: center;
-  border: 1.5px solid var(--border); border-radius: 14px; outline: none;
-  letter-spacing: 4px;
+.gate-kicker {
+  color: var(--accent);
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.3em;
+  text-indent: 0.3em;
 }
-#gate-input:focus { border-color: var(--accent); }
-#gate-btn {
-  margin-top: 1rem; width: 100%; padding: 0.7rem 0;
-  border: none; border-radius: 14px; cursor: pointer;
-  background: linear-gradient(135deg, #9183ca, #6d5bac);
-  color: #fff; font-size: 1rem; letter-spacing: 6px; text-indent: 6px;
+.gate-title {
+  margin-top: 0.25rem;
+  color: var(--ink);
+  font-size: clamp(1.8rem, 7vw, 2.45rem);
+  line-height: 1.2;
+  letter-spacing: 0.08em;
 }
-#gate-btn:hover { filter: brightness(1.05); }
-.gate-error { color: #d6455f; font-size: 0.85rem; min-height: 1.2em; margin-top: 0.7rem; }
-.gate-card.shake { animation: shake 0.35s ease; }
-@keyframes shake {
-  0%, 100% { transform: translateX(0); }
-  25% { transform: translateX(-7px); }
-  75% { transform: translateX(7px); }
+.gate-hint {
+  margin: 0.65rem 0 1.35rem;
+  color: var(--ink-soft);
+  font-size: 0.88rem;
+}
+.china-stage {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 20 / 17;
+  overflow: hidden;
+  border: 1px solid rgba(118, 105, 182, 0.13);
+  border-radius: clamp(20px, 5vw, 30px);
+  background:
+    radial-gradient(circle at 14% 20%, rgba(255,255,255,0.95) 0 2px, transparent 2.8px),
+    radial-gradient(circle at 70% 14%, rgba(118,105,182,0.2) 0 1.5px, transparent 2.5px),
+    radial-gradient(circle at 88% 76%, rgba(217,147,140,0.22) 0 2px, transparent 3px),
+    linear-gradient(135deg, rgba(237, 233, 250, 0.82), rgba(255, 247, 237, 0.9));
+}
+.china-map {
+  position: absolute;
+  inset: 2%;
+  z-index: 1;
+  width: 96%;
+  height: 96%;
+  object-fit: contain;
+  opacity: 0.82;
+  filter: drop-shadow(0 10px 18px rgba(80, 67, 120, 0.1));
+  pointer-events: none;
+  user-select: none;
+}
+.map-destination {
+  position: absolute;
+  left: 75.8%;
+  top: 71.9%;
+  z-index: 2;
+  display: grid;
+  width: clamp(62px, 10vw, 84px);
+  aspect-ratio: 1;
+  place-items: center;
+  border: 2px dashed rgba(204, 107, 111, 0.72);
+  border-radius: 50%;
+  background: rgba(255, 245, 240, 0.74);
+  color: #ad6268;
+  font-size: clamp(0.72rem, 2vw, 0.9rem);
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  transform: translate(-50%, -50%);
+  box-shadow: 0 0 0 7px rgba(255,255,255,0.4);
+  transition: transform 0.25s ease, box-shadow 0.25s ease, background 0.25s ease;
+}
+.map-destination.is-near,
+.china-stage.has-arrival .map-destination {
+  background: rgba(255, 226, 218, 0.88);
+  transform: translate(-50%, -50%) scale(1.08);
+  box-shadow: 0 0 0 8px rgba(255,255,255,0.5), 0 0 28px rgba(217,147,140,0.48);
+}
+.map-person {
+  position: absolute;
+  left: 0;
+  top: 0;
+  z-index: 3;
+  width: clamp(58px, 11vw, 82px);
+  aspect-ratio: 1;
+  border: 0;
+  background: transparent;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  will-change: transform;
+  transform: translate(-50%, -50%);
+}
+.map-person img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  pointer-events: none;
+  filter: drop-shadow(0 8px 10px rgba(55, 46, 84, 0.2));
+  transition: transform 0.2s ease, filter 0.2s ease;
+}
+.map-person-name {
+  position: absolute;
+  left: 50%;
+  top: calc(100% - 2px);
+  padding: 0.1rem 0.38rem;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.8);
+  color: #655e73;
+  font-size: clamp(0.58rem, 1.7vw, 0.72rem);
+  font-weight: 700;
+  line-height: 1.4;
+  white-space: nowrap;
+  transform: translateX(-50%);
+  transition: opacity 0.2s ease;
+}
+.map-person:active { cursor: grabbing; }
+.map-person:focus-visible { outline: none; }
+.map-person:focus-visible img { filter: drop-shadow(0 0 3px #fff) drop-shadow(0 0 7px var(--accent)); }
+.map-person.is-dragging img { transform: scale(1.08) rotate(-4deg); }
+.map-person.is-arrived { cursor: default; pointer-events: none; }
+.map-person.is-arrived .map-person-name { opacity: 0; }
+.map-reunion-flare {
+  position: absolute;
+  left: 75.8%;
+  top: 71.9%;
+  z-index: 5;
+  width: clamp(34px, 6vw, 48px);
+  aspect-ratio: 1;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+.map-reunion-flare::before,
+.map-reunion-flare::after {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+}
+.map-reunion-flare::before {
+  content: "";
+  border: 2px solid rgba(118, 105, 182, 0.72);
+  border-radius: 50%;
+}
+.map-reunion-flare::after {
+  content: "✦";
+  display: grid;
+  place-items: center;
+  color: #7869b6;
+  font-size: clamp(1.7rem, 5vw, 2.6rem);
+  line-height: 1;
+}
+.gate-status {
+  min-height: 1.5em;
+  margin-top: 1rem;
+  color: var(--accent);
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+}
+.gate.is-complete .gate-card { transform: scale(0.98); }
+.gate.is-complete .map-destination { animation: mapDestinationUnlock 1.05s ease-out both; }
+.gate.is-complete .map-reunion-flare::before { animation: mapRipple 1.05s ease-out both; }
+.gate.is-complete .map-reunion-flare::after { animation: mapFlare 0.9s ease-out both; }
+.gate.is-complete .map-girl img { animation: mapMeetGirl 0.75s ease both; }
+.gate.is-complete .map-boy img { animation: mapMeetBoy 0.75s ease both; }
+@keyframes mapDestinationUnlock {
+  0% { box-shadow: 0 0 0 8px rgba(255,255,255,0.5), 0 0 24px rgba(217,147,140,0.42); }
+  55% { box-shadow: 0 0 0 14px rgba(255,255,255,0.2), 0 0 42px rgba(118,105,182,0.55); }
+  100% { box-shadow: 0 0 0 24px rgba(255,255,255,0), 0 0 54px rgba(118,105,182,0); }
+}
+@keyframes mapRipple {
+  0% { opacity: 0.9; transform: scale(0.35); }
+  100% { opacity: 0; transform: scale(3.4); }
+}
+@keyframes mapFlare {
+  0% { opacity: 0; transform: scale(0.25) rotate(-30deg); }
+  42% { opacity: 1; transform: scale(1.35) rotate(12deg); }
+  100% { opacity: 0; transform: scale(0.78) rotate(32deg); }
+}
+@keyframes mapMeetGirl {
+  0%, 100% { transform: translateX(0) rotate(0); }
+  48% { transform: translateX(7px) rotate(3deg) scale(0.98); }
+}
+@keyframes mapMeetBoy {
+  0%, 100% { transform: translateX(0) rotate(0); }
+  48% { transform: translateX(-7px) rotate(-3deg) scale(0.98); }
 }
 
 /* ---------- Hero ---------- */
@@ -99,17 +268,20 @@ body {
   top: 50%;
   transform: translate(-50%, -50%);
   z-index: 5;
-  width: min(300px, 74vw);
+  width: min(176px, calc(100vw - 32px));
+  pointer-events: none;
+  will-change: transform;
+  transition: transform 0.16s ease-out;
 }
 .hero-portrait img {
   display: block;
   width: 100%;
-  aspect-ratio: 13 / 9;
+  height: auto;
+  aspect-ratio: 11 / 10;
   object-fit: cover;
   border-radius: 22px;
   border: 4px solid #fff;
   box-shadow: var(--shadow);
-  will-change: transform;
 }
 
 .hero-bottom {
@@ -536,8 +708,11 @@ body.modal-open { overflow: hidden; }
 
 /* ---------- 响应式 ---------- */
 @media (min-width: 640px) {
-  .hero-portrait-pos { top: auto; bottom: 26px; transform: translateX(-50%); width: clamp(260px, 28vw, 440px); }
   .hero-bottom { padding-bottom: 40px; }
+}
+
+@media (hover: none), (pointer: coarse) {
+  .hero-portrait-pos { transition-duration: 0.42s; }
 }
 
 @media (max-width: 760px) {
@@ -581,5 +756,5 @@ body.modal-open { overflow: hidden; }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; }
-  .orbit-photo, .memory-dialog, .memory-modal, #detail-image { transition: none; }
+  .gate, .gate-card, .map-destination, .map-person img, .hero-portrait-pos, .orbit-photo, .memory-dialog, .memory-modal, #detail-image { transition: none; }
 }

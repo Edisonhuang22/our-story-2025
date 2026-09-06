@@ -1,109 +1,42 @@
 'use strict';
 
-/* ---------- sha256（密码哈希比较） ---------- */
-function sha256(ascii) {
-  function rightRotate(value, amount) { return (value >>> amount) | (value << (32 - amount)); }
-  var mathPow = Math.pow, maxWord = mathPow(2, 32), result = '';
-  var words = [], asciiBitLength = ascii.length * 8;
-  var hash = sha256.h = sha256.h || [], k = sha256.k = sha256.k || [];
-  var primeCounter = k.length, isComposite = {}, i, j, candidate;
-  for (candidate = 2; primeCounter < 64; candidate++) {
-    if (!isComposite[candidate]) {
-      for (i = 0; i < 313; i += candidate) isComposite[i] = candidate;
-      hash[primeCounter] = (mathPow(candidate, 0.5) * maxWord) | 0;
-      k[primeCounter++] = (mathPow(candidate, 1 / 3) * maxWord) | 0;
-    }
-  }
-  ascii += '\x80';
-  while ((ascii.length % 64) - 56) ascii += '\x00';
-  for (i = 0; i < ascii.length; i++) {
-    j = ascii.charCodeAt(i);
-    if (j >> 8) return '';
-    words[i >> 2] |= j << (((3 - i) % 4) * 8);
-  }
-  words[words.length] = (asciiBitLength / maxWord) | 0;
-  words[words.length] = asciiBitLength;
-  for (j = 0; j < words.length;) {
-    var w = words.slice(j, (j += 16)), oldHash = hash;
-    hash = hash.slice(0, 8);
-    for (i = 0; i < 64; i++) {
-      var w15 = w[i - 15], w2 = w[i - 2];
-      var a = hash[0], e = hash[4];
-      var temp1 = hash[7] + (rightRotate(e, 6) ^ rightRotate(e, 11) ^ rightRotate(e, 25))
-        + ((e & hash[5]) ^ (~e & hash[6])) + k[i]
-        + (w[i] = (i < 16) ? w[i] : (w[i - 16] + (rightRotate(w15, 7) ^ rightRotate(w15, 18) ^ (w15 >>> 3))
-          + w[i - 7] + (rightRotate(w2, 17) ^ rightRotate(w2, 19) ^ (w2 >>> 10))) | 0);
-      var temp2 = (rightRotate(a, 2) ^ rightRotate(a, 13) ^ rightRotate(a, 22))
-        + ((a & hash[1]) ^ (a & hash[2]) ^ (hash[1] & hash[2]));
-      hash = [(temp1 + temp2) | 0].concat(hash);
-      hash[4] = (hash[4] + temp1) | 0;
-    }
-    for (i = 0; i < 8; i++) hash[i] = (hash[i] + oldHash[i]) | 0;
-  }
-  for (i = 0; i < 8; i++) {
-    for (j = 3; j + 1; j--) {
-      var b = (hash[i] >> (j * 8)) & 255;
-      result += ((b < 16) ? 0 : '') + b.toString(16);
-    }
-  }
-  return result;
-}
-
-/* ---------- 密码门 ---------- */
-var PASSWORD_HASH = '2c789f164e82993b3422581c8a4d70f1a643284a395e5111f1643509aee0caca'; // sha256('20251213')
-
-(function initGate() {
-  var gate = document.getElementById('gate');
-  var input = document.getElementById('gate-input');
-  var btn = document.getElementById('gate-btn');
-  var err = document.getElementById('gate-error');
-  var card = gate.querySelector('.gate-card');
-
-  function unlock() {
-    gate.classList.add('hidden');
-    try { sessionStorage.setItem('unlocked', '1'); } catch (e) {}
-  }
-  function attempt() {
-    if (sha256(input.value) === PASSWORD_HASH) { unlock(); return; }
-    err.textContent = '不对哦，再想想';
-    card.classList.remove('shake');
-    void card.offsetWidth;
-    card.classList.add('shake');
-  }
-
-  var already = false;
-  try { already = sessionStorage.getItem('unlocked') === '1'; } catch (e) {}
-  if (already) { gate.classList.add('hidden'); return; }
-
-  btn.addEventListener('click', attempt);
-  input.addEventListener('keydown', function (e) { if (e.key === 'Enter') attempt(); });
-})();
-
 /* ---------- Hero 载入淡入 ---------- */
 window.addEventListener('load', function () {
   document.body.classList.add('loaded');
 });
 
-/* ---------- Hero 主图磁性跟随 ---------- */
-(function initMagnet() {
-  var el = document.getElementById('hero-portrait');
-  if (!el) return;
-  var leaving = true;
-  document.addEventListener('mousemove', function (e) {
-    var r = el.getBoundingClientRect();
-    var pad = 150;
-    var inside = e.clientX > r.left - pad && e.clientX < r.right + pad && e.clientY > r.top - pad && e.clientY < r.bottom + pad;
-    if (inside) {
-      var dx = e.clientX - (r.left + r.width / 2);
-      var dy = e.clientY - (r.top + r.height / 2);
-      el.style.transition = 'transform 0.3s ease-out';
-      el.style.transform = 'translate3d(' + (dx / 3) + 'px,' + (dy / 3) + 'px,0)';
-      leaving = true;
-    } else if (leaving) {
-      leaving = false;
-      el.style.transition = 'transform 0.6s ease-in-out';
-      el.style.transform = 'translate3d(0,0,0)';
-    }
+/* ---------- Hero 主图跟随 ---------- */
+(function initHeroPortraitFollow() {
+  var hero = document.querySelector('.hero');
+  var portrait = hero && hero.querySelector('.hero-portrait-pos');
+  if (!hero || !portrait) return;
+  var frame = 0;
+  var targetX = 0;
+  var targetY = 0;
+
+  function moveTo(clientX, clientY) {
+    var heroRect = hero.getBoundingClientRect();
+    var halfWidth = portrait.offsetWidth / 2;
+    var halfHeight = portrait.offsetHeight / 2;
+    var x = Math.max(halfWidth, Math.min(heroRect.width - halfWidth, clientX - heroRect.left));
+    var y = Math.max(halfHeight, Math.min(heroRect.height - halfHeight, clientY - heroRect.top));
+    portrait.style.transform = 'translate3d(calc(-50% + ' + (x - heroRect.width / 2).toFixed(1) + 'px), calc(-50% + ' + (y - heroRect.height / 2).toFixed(1) + 'px), 0)';
+  }
+
+  hero.addEventListener('pointermove', function (e) {
+    if (e.pointerType !== 'mouse') return;
+    targetX = e.clientX;
+    targetY = e.clientY;
+    if (frame) return;
+    frame = requestAnimationFrame(function () {
+      frame = 0;
+      moveTo(targetX, targetY);
+    });
+  });
+
+  hero.addEventListener('pointerdown', function (e) {
+    if (e.pointerType === 'mouse' || !e.isPrimary || e.target.closest('a, button, input')) return;
+    moveTo(e.clientX, e.clientY);
   });
 })();
 

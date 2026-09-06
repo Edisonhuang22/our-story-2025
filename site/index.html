@@ -6,16 +6,45 @@
   <title>大大怪将军与小小怪下士</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>💌</text></svg>">
   <link rel="preload" as="image" href="img/orbit-atlas.webp" type="image/webp">
+  <link rel="preload" as="image" href="img/gate/girl.png" type="image/png">
+  <link rel="preload" as="image" href="img/gate/boy.png" type="image/png">
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
-  <div id="gate" class="gate">
-    <div class="gate-card">
-      <div class="gate-icon">💌</div>
-      <p class="gate-hint">输入一个只有你们知道的数字</p>
-      <input id="gate-input" type="password" inputmode="numeric" placeholder="……" autocomplete="off">
-      <button id="gate-btn">打开</button>
-      <p id="gate-error" class="gate-error"></p>
+  <div id="gate" class="gate" role="dialog" aria-modal="true" aria-labelledby="gate-title">
+    <div class="gate-card" id="gate-card">
+      <p class="gate-kicker">REUNION MISSION</p>
+      <h2 class="gate-title" id="gate-title">一起去江西</h2>
+      <p class="gate-hint" id="gate-hint">让大大怪学长和小小怪学妹在江西会合。</p>
+
+      <div class="china-stage" id="china-stage">
+        <img class="china-map" src="img/gate/china-map.svg" alt="" width="1000" height="850" draggable="false">
+
+        <div class="map-destination" id="jiangxi-target" aria-hidden="true"><span>江西</span></div>
+        <button
+          class="map-person map-girl"
+          id="gate-girl"
+          type="button"
+          aria-label="小小怪学妹，拖动到江西"
+          aria-describedby="gate-hint gate-status"
+        >
+          <img src="img/gate/girl.png" alt="" width="522" height="478" draggable="false">
+          <span class="map-person-name">小小怪学妹</span>
+        </button>
+        <button
+          class="map-person map-boy"
+          id="gate-boy"
+          type="button"
+          aria-label="大大怪学长，拖动到江西"
+          aria-describedby="gate-hint gate-status"
+        >
+          <img src="img/gate/boy.png" alt="" width="528" height="472" draggable="false">
+          <span class="map-person-name">大大怪学长</span>
+        </button>
+        <span class="map-reunion-flare" aria-hidden="true"></span>
+      </div>
+
+      <p class="gate-status" id="gate-status" aria-live="polite">把他们都拖到江西 · 也可以使用方向键</p>
     </div>
   </div>
 
@@ -99,6 +128,7 @@
 
   <div id="hearts" aria-hidden="true"></div>
 
+  <script src="js/gate.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>
