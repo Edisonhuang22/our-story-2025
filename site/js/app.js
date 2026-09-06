@@ -107,359 +107,366 @@ window.addEventListener('load', function () {
   });
 })();
 
-/* ---------- 数据加载 ---------- */
-var chaptersEl = document.getElementById('chapters');
+/* ---------- 照片故事球 ---------- */
+var orbitEl = document.getElementById('memory-orbit');
+var orbitStage = document.getElementById('orbit-stage');
+var orbitDate = document.getElementById('orbit-date');
+var orbitTitle = document.getElementById('orbit-title');
+var orbitCount = document.getElementById('orbit-count');
+var galleryError = document.getElementById('gallery-error');
+var ORBIT_ATLAS_COLUMNS = 11;
+var ORBIT_ATLAS_ROWS = 8;
+
+function setAtlasPosition(el, index) {
+  el.style.setProperty('--atlas-x', ((index % ORBIT_ATLAS_COLUMNS) / (ORBIT_ATLAS_COLUMNS - 1) * 100).toFixed(3) + '%');
+  el.style.setProperty('--atlas-y', (Math.floor(index / ORBIT_ATLAS_COLUMNS) / (ORBIT_ATLAS_ROWS - 1) * 100).toFixed(3) + '%');
+}
 
 Promise.all([
-  fetch('data/events.json').then(function (r) { return r.json(); }),
-  fetch('data/photos.json').then(function (r) { return r.json(); })
+  fetch('data/events.json').then(function (r) { if (!r.ok) throw new Error('文字数据读取失败'); return r.json(); }),
+  fetch('data/photos.json').then(function (r) { if (!r.ok) throw new Error('照片数据读取失败'); return r.json(); })
 ]).then(function (res) {
-  var events = res[0];
   var photosByFolder = {};
-  var allPhotos = [];
-  res[1].chapters.forEach(function (c) {
-    photosByFolder[c.folder] = c.photos;
-    c.photos.forEach(function (p) { allPhotos.push(p); });
-  });
-  renderChapters(events, photosByFolder);
-  renderMarquee(allPhotos);
-  renderAboutLine();
+  res[1].chapters.forEach(function (chapter) { photosByFolder[chapter.folder] = chapter.photos; });
+  var stories = res[0].map(function (event) {
+    return { event: event, photos: photosByFolder[event.folder] || [] };
+  }).filter(function (story) { return story.photos.length; });
+  renderOrbit(stories);
+  initMemoryModal(stories);
 }).catch(function (e) {
-  chaptersEl.innerHTML = '<p style="text-align:center;padding:3rem">加载失败：' + e.message + '</p>';
+  galleryError.textContent = '照片暂时没有排好队：' + e.message;
 });
 
-/* ---------- 照片横向滑动区 ---------- */
-function renderMarquee(allPhotos) {
-  var row1 = [], row2 = [];
-  allPhotos.forEach(function (p, i) { (i % 2 === 0 ? row1 : row2).push(p); });
-  buildRow('marquee-row-1', row1);
-  buildRow('marquee-row-2', row2);
+function normalize(v) {
+  var length = Math.sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2]) || 1;
+  return [v[0] / length, v[1] / length, v[2] / length];
 }
 
-function loadImg(img, url) {
-  img.dataset.tries = '0';
-  img.addEventListener('error', function onErr() {
-    var tries = parseInt(img.dataset.tries || '0', 10);
-    if (tries >= 2) {
-      img.removeEventListener('error', onErr);
-      img.classList.add('img-failed');
-      return;
-    }
-    img.dataset.tries = String(tries + 1);
-    img.src = url + (url.indexOf('?') >= 0 ? '&' : '?') + 'r=' + (tries + 1);
-  });
-  img.src = url;
+function cross(a, b) {
+  return [
+    a[1] * b[2] - a[2] * b[1],
+    a[2] * b[0] - a[0] * b[2],
+    a[0] * b[1] - a[1] * b[0]
+  ];
 }
 
-var lazyImgObserver = new IntersectionObserver(function (entries) {
-  entries.forEach(function (en) {
-    if (!en.isIntersecting) return;
-    var img = en.target;
-    var url = img.dataset.src;
-    if (url) {
-      delete img.dataset.src;
-      loadImg(img, url);
-    }
-    lazyImgObserver.unobserve(img);
-  });
-}, { rootMargin: '400px 300px' });
+function renderOrbit(stories) {
+  var nodes = [];
+  var fragment = document.createDocumentFragment();
+  var clusterColors = ['#8f83d8', '#e28b8b', '#75a998', '#d49a54', '#8aa6d1'];
+  var goldenAngle = Math.PI * (3 - Math.sqrt(5));
+  var atlasIndex = 0;
 
-function buildRow(id, list) {
-  var el = document.getElementById(id);
-  list.forEach(function (p) {
-    var d = document.createElement('div');
-    d.className = 'marquee-tile';
-    var img = document.createElement('img');
-    img.dataset.src = p.thumb;
-    img.alt = '';
-    img.width = 560;
-    img.height = 360;
-    img.decoding = 'async';
-    d.appendChild(img);
-    el.appendChild(d);
-    lazyImgObserver.observe(img);
-  });
-  initDrag(el);
-}
+  stories.forEach(function (story, storyIndex) {
+    var t = stories.length === 1 ? 0.5 : storyIndex / (stories.length - 1);
+    var y = 1 - 2 * t;
+    var ring = Math.sqrt(Math.max(0, 1 - y * y));
+    var angle = storyIndex * goldenAngle;
+    var center = [Math.cos(angle) * ring, y, Math.sin(angle) * ring];
+    var helper = Math.abs(center[1]) > 0.86 ? [1, 0, 0] : [0, 1, 0];
+    var tangentX = normalize(cross(helper, center));
+    var tangentY = normalize(cross(center, tangentX));
 
-function initDrag(row) {
-  var down = false, startX = 0, startLeft = 0;
-  row.style.cursor = 'grab';
-  row.addEventListener('pointerdown', function (e) {
-    if (e.pointerType !== 'mouse' || e.button !== 0) return;
-    down = true;
-    startX = e.clientX;
-    startLeft = row.scrollLeft;
-    row.style.cursor = 'grabbing';
-    try { row.setPointerCapture(e.pointerId); } catch (err) {}
-  });
-  row.addEventListener('pointermove', function (e) {
-    if (!down) return;
-    row.scrollLeft = startLeft - (e.clientX - startX);
-  });
-  function stop() { down = false; row.style.cursor = 'grab'; }
-  row.addEventListener('pointerup', stop);
-  row.addEventListener('pointercancel', stop);
-}
+    story.photos.forEach(function (photo, photoIndex) {
+      photo.atlasIndex = atlasIndex;
+      var localAngle = photoIndex * goldenAngle + storyIndex * 0.31;
+      var localRadius = story.photos.length === 1 ? 0 : 0.075 + 0.048 * Math.sqrt(photoIndex);
+      var vector = normalize([
+        center[0] + tangentX[0] * Math.cos(localAngle) * localRadius + tangentY[0] * Math.sin(localAngle) * localRadius,
+        center[1] + tangentX[1] * Math.cos(localAngle) * localRadius + tangentY[1] * Math.sin(localAngle) * localRadius,
+        center[2] + tangentX[2] * Math.cos(localAngle) * localRadius + tangentY[2] * Math.sin(localAngle) * localRadius
+      ]);
 
-/* ---------- 过渡段逐字显现 ---------- */
-function renderAboutLine() {
-  var el = document.getElementById('about-text');
-  var text = '开始了！！！';
-  var spans = [];
-  text.split('').forEach(function (ch) {
-    var s = document.createElement('span');
-    s.className = 'achar';
-    s.textContent = ch;
-    el.appendChild(s);
-    spans.push(s);
-  });
-  var done = false;
-  var observer = new IntersectionObserver(function (entries) {
-    entries.forEach(function (en) {
-      if (en.isIntersecting && !done) {
-        done = true;
-        spans.forEach(function (s, i) {
-          setTimeout(function () { s.classList.add('lit'); }, 40 * i);
-        });
-        observer.disconnect();
-      }
+      var button = document.createElement('button');
+      button.className = 'orbit-photo';
+      button.type = 'button';
+      button.style.setProperty('--cluster-color', clusterColors[storyIndex % clusterColors.length]);
+      button.style.setProperty('--photo-tilt', (((photoIndex * 7 + storyIndex * 3) % 13) - 6) + 'deg');
+      setAtlasPosition(button, atlasIndex);
+      button.dataset.storyIndex = String(storyIndex);
+      button.dataset.photoIndex = String(photoIndex);
+      button.setAttribute('aria-label', story.event.date + '，' + story.event.title + '，第' + (photoIndex + 1) + '张照片');
+      fragment.appendChild(button);
+
+      var node = {
+        el: button,
+        vector: vector,
+        storyIndex: storyIndex,
+        photoIndex: photoIndex,
+        interactive: null,
+        keyboard: null,
+        visible: null,
+        z: -1
+      };
+      nodes.push(node);
+      atlasIndex += 1;
+      button.addEventListener('click', function () {
+        if (!drag.moved) openMemory(storyIndex, photoIndex, button);
+      });
     });
-  }, { threshold: 0.5 });
-  observer.observe(el);
+  });
+  orbitStage.appendChild(fragment);
+
+  var atlasImage = new Image();
+  atlasImage.onload = function () { orbitEl.classList.add('is-ready'); };
+  atlasImage.onerror = function () { galleryError.textContent = '照片预览图加载失败，请刷新后再试。'; };
+  atlasImage.src = 'img/orbit-atlas.webp';
+  if (atlasImage.complete && atlasImage.naturalWidth) orbitEl.classList.add('is-ready');
+
+  var state = { yaw: -0.48, pitch: -0.08, vx: 0, vy: 0 };
+  var drag = { active: false, moved: false, x: 0, y: 0, time: 0, pointerId: null, capturePending: false };
+  var activeNodeIndex = -1;
+  var reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var inView = false;
+  var frame = 0;
+  var lastFrame = performance.now();
+
+  function positionNodes() {
+    var width = orbitEl.clientWidth;
+    var height = orbitEl.clientHeight;
+    var radius = Math.min(width, height) * (width < 600 ? 0.37 : 0.4);
+    var sinY = Math.sin(state.yaw), cosY = Math.cos(state.yaw);
+    var sinX = Math.sin(state.pitch), cosX = Math.cos(state.pitch);
+    var nearest = 0;
+    var nearestZ = -2;
+
+    nodes.forEach(function (node, index) {
+      var v = node.vector;
+      var x1 = v[0] * cosY + v[2] * sinY;
+      var z1 = -v[0] * sinY + v[2] * cosY;
+      var y2 = v[1] * cosX - z1 * sinX;
+      var z2 = v[1] * sinX + z1 * cosX;
+      var depth = (z2 + 1) / 2;
+      var perspective = 0.7 + depth * 0.38;
+      var scale = 0.46 + depth * 0.72;
+      var opacity = 0.07 + Math.pow(depth, 1.55) * 0.93;
+      var x = x1 * radius * perspective;
+      var y = y2 * radius * perspective;
+
+      node.z = z2;
+      node.el.style.transform = 'translate3d(' + x.toFixed(1) + 'px,' + y.toFixed(1) + 'px,0) scale(' + scale.toFixed(3) + ') rotate(' + node.el.style.getPropertyValue('--photo-tilt') + ')';
+      node.el.style.opacity = opacity.toFixed(3);
+      node.el.style.zIndex = String(Math.round(depth * 1000));
+      var visible = z2 > -0.56;
+      if (visible !== node.visible) {
+        node.visible = visible;
+        node.el.style.visibility = visible ? 'visible' : 'hidden';
+      }
+      var interactive = z2 > 0.03;
+      if (interactive !== node.interactive) {
+        node.interactive = interactive;
+        node.el.style.pointerEvents = interactive ? 'auto' : 'none';
+      }
+      var keyboard = z2 > 0.28;
+      if (keyboard !== node.keyboard) {
+        node.keyboard = keyboard;
+        node.el.tabIndex = keyboard ? 0 : -1;
+      }
+      if (z2 > nearestZ) { nearestZ = z2; nearest = index; }
+    });
+
+    if (nearest !== activeNodeIndex) {
+      if (activeNodeIndex >= 0) nodes[activeNodeIndex].el.classList.remove('is-nearest');
+      activeNodeIndex = nearest;
+      nodes[nearest].el.classList.add('is-nearest');
+      var story = stories[nodes[nearest].storyIndex];
+      orbitDate.textContent = story.event.date;
+      orbitTitle.textContent = story.event.title;
+      orbitCount.textContent = story.photos.length + ' 张照片';
+    }
+  }
+
+  function animate(now) {
+    if (!inView) { frame = 0; return; }
+    if (now - lastFrame < 30) { frame = requestAnimationFrame(animate); return; }
+    var delta = Math.min(40, now - lastFrame);
+    lastFrame = now;
+    if (!drag.active && !reducedMotion) {
+      state.yaw += state.vx * delta + 0.000035 * delta;
+      state.pitch += state.vy * delta;
+      state.vx *= Math.pow(0.94, delta / 16);
+      state.vy *= Math.pow(0.94, delta / 16);
+      state.pitch = Math.max(-1.25, Math.min(1.25, state.pitch));
+    }
+    positionNodes();
+    frame = requestAnimationFrame(animate);
+  }
+
+  function startAnimation() {
+    if (frame) return;
+    lastFrame = performance.now();
+    frame = requestAnimationFrame(animate);
+  }
+
+  new IntersectionObserver(function (entries) {
+    inView = entries[0].isIntersecting;
+    if (inView) startAnimation();
+  }, { threshold: 0.05 }).observe(orbitEl);
+
+  orbitEl.addEventListener('pointerdown', function (e) {
+    if (e.button !== undefined && e.button !== 0) return;
+    drag.active = true;
+    drag.moved = false;
+    drag.x = e.clientX;
+    drag.y = e.clientY;
+    drag.time = performance.now();
+    drag.pointerId = e.pointerId;
+    drag.capturePending = Boolean(e.target.closest('.orbit-photo'));
+    state.vx = 0;
+    state.vy = 0;
+    orbitEl.classList.add('is-dragging');
+    if (!drag.capturePending) {
+      try { orbitEl.setPointerCapture(e.pointerId); } catch (err) {}
+    }
+  });
+
+  orbitEl.addEventListener('pointermove', function (e) {
+    if (!drag.active) return;
+    var dx = e.clientX - drag.x;
+    var dy = e.clientY - drag.y;
+    var elapsed = Math.max(8, performance.now() - drag.time);
+    if (Math.abs(dx) + Math.abs(dy) > 3) {
+      drag.moved = true;
+      if (drag.capturePending) {
+        drag.capturePending = false;
+        try { orbitEl.setPointerCapture(drag.pointerId); } catch (err) {}
+      }
+    }
+    state.yaw += dx * 0.006;
+    state.pitch -= dy * 0.005;
+    state.pitch = Math.max(-1.25, Math.min(1.25, state.pitch));
+    state.vx = dx * 0.006 / elapsed;
+    state.vy = -dy * 0.005 / elapsed;
+    drag.x = e.clientX;
+    drag.y = e.clientY;
+    drag.time = performance.now();
+    positionNodes();
+  });
+
+  function endDrag() {
+    drag.active = false;
+    drag.capturePending = false;
+    drag.pointerId = null;
+    orbitEl.classList.remove('is-dragging');
+    setTimeout(function () { drag.moved = false; }, 0);
+  }
+  orbitEl.addEventListener('pointerup', endDrag);
+  orbitEl.addEventListener('pointercancel', endDrag);
+
+  orbitEl.addEventListener('keydown', function (e) {
+    var handled = true;
+    if (e.key === 'ArrowLeft') state.yaw -= 0.18;
+    else if (e.key === 'ArrowRight') state.yaw += 0.18;
+    else if (e.key === 'ArrowUp') state.pitch += 0.14;
+    else if (e.key === 'ArrowDown') state.pitch -= 0.14;
+    else if (e.key === 'Enter' && activeNodeIndex >= 0) {
+      var active = nodes[activeNodeIndex];
+      openMemory(active.storyIndex, active.photoIndex, orbitEl);
+    } else handled = false;
+    if (handled) { e.preventDefault(); positionNodes(); }
+  });
+
+  window.addEventListener('resize', positionNodes);
+  positionNodes();
 }
 
-/* ---------- 叠放组件 ---------- */
-function createStack(wrapEl, photos) {
-  var n = photos.length;
-  var order = [];
-  for (var i = 0; i < n; i++) order.push(i);
-  var cards = [];
-  var animating = false;
-  var counterEl = null, panel = null;
+/* ---------- 照片与文字详情 ---------- */
+var openMemory = function () {};
 
-  function buildCards() {
-    photos.forEach(function (p) {
-      var c = document.createElement('div');
-      c.className = 'photo-card';
-      var img = document.createElement('img');
-      img.alt = '';
-      img.width = 640;
-      img.height = 812;
-      img.decoding = 'async';
-      c.appendChild(img);
-      wrapEl.appendChild(c);
-      cards.push(c);
+function initMemoryModal(stories) {
+  var modal = document.getElementById('memory-modal');
+  var dialog = modal.querySelector('.memory-dialog');
+  var closeBtn = document.getElementById('modal-close');
+  var image = document.getElementById('detail-image');
+  var thumbs = document.getElementById('detail-thumbs');
+  var prevBtn = document.getElementById('detail-prev');
+  var nextBtn = document.getElementById('detail-next');
+  var photoCount = document.getElementById('detail-photo-count');
+  var date = document.getElementById('detail-date');
+  var title = document.getElementById('detail-title');
+  var text = document.getElementById('detail-text');
+  var currentStory = 0;
+  var currentPhoto = 0;
+  var returnFocus = null;
+  var hideTimer = 0;
+
+  function showPhoto(index) {
+    var story = stories[currentStory];
+    currentPhoto = (index + story.photos.length) % story.photos.length;
+    var photo = story.photos[currentPhoto];
+    image.classList.add('is-loading');
+    image.onload = function () { image.classList.remove('is-loading'); };
+    image.src = photo.src;
+    image.alt = story.event.title + '，第' + (currentPhoto + 1) + '张照片';
+    image.width = photo.w;
+    image.height = photo.h;
+    photoCount.textContent = (currentPhoto + 1) + ' / ' + story.photos.length;
+    Array.prototype.forEach.call(thumbs.children, function (thumb, thumbIndex) {
+      var selected = thumbIndex === currentPhoto;
+      thumb.classList.toggle('is-active', selected);
+      thumb.setAttribute('aria-current', selected ? 'true' : 'false');
+      if (selected) thumb.scrollIntoView({ block: 'nearest', inline: 'center' });
     });
   }
 
-  function ensureTopLoaded() {
-    for (var k = 0; k < Math.min(3, n); k++) {
-      var idx = order[k];
-      var img = cards[idx].querySelector('img');
-      if (!img.dataset.loaded) {
-        img.dataset.loaded = '1';
-        loadImg(img, photos[idx].card);
-      }
-    }
-  }
-
-  var deckIO = new IntersectionObserver(function (entries) {
-    if (entries[0].isIntersecting) {
-      ensureTopLoaded();
-      deckIO.disconnect();
-    }
-  }, { rootMargin: '800px 0px' });
-  deckIO.observe(wrapEl);
-
-  function stackStyle(pos) {
-    if (pos === 0) return { t: 'translate(0px,0px) rotate(0deg)', o: 1, z: 30 };
-    var d = Math.min(pos, 3);
-    var x = (d % 2 === 0 ? -7 : 7) * d;
-    return { t: 'translate(' + x + 'px,' + (16 * d) + 'px) rotate(' + ((d % 2 === 0 ? -1.4 : 1.4) * d) + 'deg)', o: pos <= 3 ? 0.92 : 0, z: 30 - d };
-  }
-
-  function applyPositions() {
-    cards.forEach(function (c, i) {
-      var s = stackStyle(order.indexOf(i));
-      c.style.transform = s.t;
-      c.style.opacity = s.o;
-      c.style.zIndex = s.z;
+  function buildThumbs(story) {
+    thumbs.innerHTML = '';
+    story.photos.forEach(function (photo, index) {
+      var button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'detail-thumb';
+      button.setAttribute('aria-label', '查看第' + (index + 1) + '张照片');
+      setAtlasPosition(button, photo.atlasIndex);
+      button.addEventListener('click', function () { showPhoto(index); });
+      thumbs.appendChild(button);
     });
   }
 
-  function notify(idx) {
-    if (counterEl) counterEl.textContent = (idx + 1) + ' / ' + n;
-    if (panel) panel.show();
-  }
-
-  function goNext() {
-    if (animating || n < 2) return;
-    animating = true;
-    var top = order[0], c = cards[top];
-    c.style.transition = 'transform .32s ease-in, opacity .32s ease-in';
-    c.style.zIndex = 1;
-    c.style.transform = 'translate(-150%, 24px) rotate(-14deg)';
-    c.style.opacity = '0';
-    order.push(order.shift());
-    notify(order[0]);
-    ensureTopLoaded();
-    setTimeout(function () {
-      c.style.transition = 'none';
-      var s = stackStyle(order.indexOf(top));
-      c.style.transform = s.t;
-      c.style.zIndex = s.z;
-      void c.offsetWidth;
-      c.style.transition = '';
-      applyPositions();
-      animating = false;
-    }, 330);
-  }
-
-  function goPrev() {
-    if (animating || n < 2) return;
-    animating = true;
-    var last = order[order.length - 1], c = cards[last];
-    c.style.transition = 'none';
-    c.style.transform = 'translate(120%, 0) rotate(10deg)';
-    c.style.opacity = '0';
-    void c.offsetWidth;
-    c.style.transition = 'transform .32s ease-out, opacity .32s ease-out';
-    order.pop();
-    order.unshift(last);
-    c.style.zIndex = 40;
-    c.style.transform = 'translate(0px,0px) rotate(0deg)';
-    c.style.opacity = '1';
-    notify(order[0]);
-    ensureTopLoaded();
-    setTimeout(function () { applyPositions(); animating = false; }, 340);
-  }
-
-  var startX = null;
-  wrapEl.addEventListener('pointerdown', function (e) { startX = e.clientX; });
-  wrapEl.addEventListener('pointerup', function (e) {
-    if (startX === null) return;
-    var dx = e.clientX - startX;
-    if (dx > 40) goPrev();
-    else if (dx < -40) goNext();
-    startX = null;
-  });
-  wrapEl.addEventListener('click', function () { goNext(); });
-
-  buildCards();
-  applyPositions();
-
-  return {
-    next: goNext,
-    prev: goPrev,
-    bindControls: function (prevBtn, nextBtn, counter, descPanel) {
-      counterEl = counter;
-      panel = descPanel;
-      prevBtn.addEventListener('click', function () { goPrev(); });
-      nextBtn.addEventListener('click', function () { goNext(); });
-      if (n < 2) {
-        prevBtn.style.visibility = 'hidden';
-        nextBtn.style.visibility = 'hidden';
-        counter.style.visibility = 'hidden';
-      }
-      notify(0);
-    }
+  openMemory = function (storyIndex, photoIndex, source) {
+    currentStory = storyIndex;
+    returnFocus = source;
+    var story = stories[storyIndex];
+    date.textContent = story.event.date;
+    title.textContent = story.event.title;
+    text.textContent = story.event.text;
+    buildThumbs(story);
+    showPhoto(photoIndex);
+    clearTimeout(hideTimer);
+    modal.hidden = false;
+    document.body.classList.add('modal-open');
+    requestAnimationFrame(function () {
+      modal.classList.add('is-open');
+      dialog.focus();
+    });
   };
-}
 
-/* ---------- 文字面板 ---------- */
-function makeTextPanel(chapter) {
-  var panel = document.createElement('div');
-  panel.className = 'desc-panel';
-  panel.innerHTML =
-    '<div class="desc-date"></div>' +
-    '<div class="desc-text"></div>';
-  var dateEl = panel.querySelector('.desc-date');
-  var textEl = panel.querySelector('.desc-text');
-  return {
-    el: panel,
-    show: function () {
-      panel.classList.remove('fade-in');
-      panel.classList.add('fade-out');
-      setTimeout(function () {
-        dateEl.textContent = chapter.date;
-        textEl.textContent = chapter.text;
-        panel.classList.remove('fade-out');
-        panel.classList.add('fade-in');
-      }, 120);
-    }
-  };
-}
+  function closeModal() {
+    if (modal.hidden) return;
+    modal.classList.remove('is-open');
+    document.body.classList.remove('modal-open');
+    hideTimer = setTimeout(function () {
+      modal.hidden = true;
+      image.src = '';
+      if (returnFocus && document.contains(returnFocus)) returnFocus.focus();
+    }, 220);
+  }
 
-/* ---------- 渲染章节（卡片列表） ---------- */
+  closeBtn.addEventListener('click', closeModal);
+  modal.querySelector('[data-modal-close]').addEventListener('click', closeModal);
+  prevBtn.addEventListener('click', function () { showPhoto(currentPhoto - 1); });
+  nextBtn.addEventListener('click', function () { showPhoto(currentPhoto + 1); });
 
-function renderChapters(events, photosByFolder) {
-  var total = events.length;
-  events.forEach(function (ev, idx) {
-    var photos = photosByFolder[ev.folder] || [];
-    var slot = document.createElement('div');
-    slot.className = 'card-slot';
-
-    var card = document.createElement('article');
-    card.className = 'chapter-card';
-
-    var head = document.createElement('div');
-    head.className = 'card-head';
-    var num = document.createElement('span');
-    num.className = 'card-num';
-    num.textContent = (idx + 1 < 10 ? '0' : '') + (idx + 1);
-    var meta = document.createElement('div');
-    meta.className = 'card-meta';
-    var dateEl = document.createElement('div');
-    dateEl.className = 'desc-date';
-    dateEl.textContent = ev.date;
-    var titleEl = document.createElement('h3');
-    titleEl.className = 'desc-title';
-    titleEl.textContent = ev.title;
-    meta.appendChild(dateEl);
-    meta.appendChild(titleEl);
-    var count = document.createElement('span');
-    count.className = 'card-count';
-    count.textContent = photos.length + ' PHOTOS';
-    head.appendChild(num);
-    head.appendChild(meta);
-    head.appendChild(count);
-    card.appendChild(head);
-
-    var body = document.createElement('div');
-    body.className = 'card-body';
-    var stackSide = document.createElement('div');
-    stackSide.className = 'stack-side';
-    var wrap = document.createElement('div');
-    wrap.className = 'stack-wrap';
-    var controls = document.createElement('div');
-    controls.className = 'deck-controls';
-    var prevBtn = document.createElement('button');
-    prevBtn.textContent = '‹';
-    var counter = document.createElement('span');
-    counter.className = 'deck-counter';
-    var nextBtn = document.createElement('button');
-    nextBtn.textContent = '›';
-    controls.appendChild(prevBtn);
-    controls.appendChild(counter);
-    controls.appendChild(nextBtn);
-    stackSide.appendChild(wrap);
-    stackSide.appendChild(controls);
-
-    var panel = makeTextPanel(ev);
-    body.appendChild(stackSide);
-    body.appendChild(panel.el);
-    card.appendChild(body);
-    slot.appendChild(card);
-    chaptersEl.appendChild(slot);
-
-    if (photos.length) {
-      createStack(wrap, photos).bindControls(prevBtn, nextBtn, counter, panel);
-    } else {
-      panel.show();
-      counter.textContent = '0 / 0';
-    }
-
+  modal.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') { closeModal(); return; }
+    if (e.key === 'ArrowLeft') { e.preventDefault(); showPhoto(currentPhoto - 1); return; }
+    if (e.key === 'ArrowRight') { e.preventDefault(); showPhoto(currentPhoto + 1); return; }
+    if (e.key !== 'Tab') return;
+    var focusable = modal.querySelectorAll('button:not([disabled])');
+    if (!focusable.length) return;
+    var first = focusable[0];
+    var last = focusable[focusable.length - 1];
+    if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+    else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
   });
 }
 

@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>大大怪将军与小小怪下士</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>💌</text></svg>">
+  <link rel="preload" as="image" href="img/orbit-atlas.webp" type="image/webp">
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
@@ -33,16 +34,65 @@
     </div>
   </header>
 
-  <section class="marquee-section" id="photos">
-    <div class="marquee-row" id="marquee-row-1"></div>
-    <div class="marquee-row" id="marquee-row-2"></div>
-  </section>
+  <main class="memory-gallery" id="photos" aria-labelledby="gallery-title">
+    <div class="gallery-copy">
+      <p class="gallery-kicker">OUR LITTLE UNIVERSE</p>
+      <h2 id="gallery-title">把我们的故事转到眼前</h2>
+      <p>拖动照片球，点开任意一张。靠在一起的照片属于同一段回忆，也会打开同一份文字。</p>
+    </div>
 
-  <section class="about-line" id="about-line">
-    <p id="about-text"></p>
-  </section>
+    <div class="orbit-shell">
+      <div
+        class="memory-orbit"
+        id="memory-orbit"
+        role="region"
+        aria-label="可拖动的照片故事球"
+        aria-describedby="orbit-help"
+        tabindex="0"
+      >
+        <div class="orbit-stars" aria-hidden="true"></div>
+        <div class="orbit-stage" id="orbit-stage"></div>
+        <div class="orbit-focus" aria-hidden="true"></div>
+      </div>
 
-  <section class="projects" id="chapters"></section>
+      <div class="orbit-caption" aria-live="polite">
+        <span id="orbit-date">正在整理回忆…</span>
+        <strong id="orbit-title"></strong>
+        <span id="orbit-count"></span>
+      </div>
+    </div>
+
+    <p class="orbit-help" id="orbit-help">
+      <span>拖动旋转</span><i aria-hidden="true"></i><span>点击阅读</span><i aria-hidden="true"></i><span>方向键也可以</span>
+    </p>
+    <p class="gallery-error" id="gallery-error" role="status"></p>
+  </main>
+
+  <div class="memory-modal" id="memory-modal" hidden>
+    <div class="modal-backdrop" data-modal-close></div>
+    <article class="memory-dialog" role="dialog" aria-modal="true" aria-labelledby="detail-title" tabindex="-1">
+      <button class="modal-close" id="modal-close" type="button" aria-label="关闭详情">×</button>
+
+      <div class="detail-gallery">
+        <div class="detail-image-wrap">
+          <img id="detail-image" src="" alt="" decoding="async">
+          <span class="detail-photo-count" id="detail-photo-count"></span>
+        </div>
+        <div class="detail-controls">
+          <button id="detail-prev" type="button" aria-label="上一张照片">‹</button>
+          <div class="detail-thumbs" id="detail-thumbs" aria-label="这段回忆的全部照片"></div>
+          <button id="detail-next" type="button" aria-label="下一张照片">›</button>
+        </div>
+      </div>
+
+      <div class="detail-copy">
+        <p class="detail-date" id="detail-date"></p>
+        <h3 id="detail-title"></h3>
+        <p class="detail-text" id="detail-text"></p>
+        <p class="detail-note"><span aria-hidden="true">✦</span> 这一小簇照片，共用这一段回忆</p>
+      </div>
+    </article>
+  </div>
 
   <a class="egg-footer" href="easter-egg.html" title="嘘…" aria-label="彩蛋页入口">🐣</a>
 
