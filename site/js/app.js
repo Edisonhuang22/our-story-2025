@@ -49,6 +49,49 @@ var orbitCount = document.getElementById('orbit-count');
 var galleryError = document.getElementById('gallery-error');
 var ORBIT_ATLAS_COLUMNS = 11;
 var ORBIT_ATLAS_ROWS = 8;
+var orbitProfile = getOrbitProfile();
+
+document.documentElement.dataset.orbitProfile = orbitProfile.name;
+if (orbitProfile.reducedEffects) document.documentElement.classList.add('orbit-reduced-fx');
+
+function getOrbitProfile() {
+  var touchDevice = window.matchMedia('(pointer: coarse)').matches || window.innerWidth <= 700;
+  var memory = navigator.deviceMemory || 0;
+  var cores = navigator.hardwareConcurrency || 0;
+  var saveData = Boolean(navigator.connection && navigator.connection.saveData);
+  var lowPower = (memory > 0 && memory <= 4) || (cores > 0 && cores <= 4) || saveData;
+
+  if (touchDevice && lowPower) {
+    return { name: 'touch-lite', maxNodes: 34, frameInterval: 20, visibilityThreshold: -0.2, reducedEffects: true };
+  }
+  if (touchDevice) {
+    return { name: 'touch', maxNodes: 46, frameInterval: 16, visibilityThreshold: -0.35, reducedEffects: true };
+  }
+  if (lowPower) {
+    return { name: 'balanced', maxNodes: 64, frameInterval: 20, visibilityThreshold: -0.45, reducedEffects: true };
+  }
+  return { name: 'desktop', maxNodes: Infinity, frameInterval: 16, visibilityThreshold: -0.56, reducedEffects: false };
+}
+
+function selectOrbitPhotos(stories, maxNodes) {
+  var total = stories.reduce(function (sum, story) { return sum + story.photos.length; }, 0);
+  if (total <= maxNodes) return null;
+
+  var selected = Object.create(null);
+  var extras = [];
+  stories.forEach(function (story, storyIndex) {
+    selected[storyIndex + ':0'] = true;
+    for (var photoIndex = 1; photoIndex < story.photos.length; photoIndex++) {
+      extras.push(storyIndex + ':' + photoIndex);
+    }
+  });
+
+  var remaining = Math.max(0, maxNodes - stories.length);
+  for (var i = 0; i < remaining; i++) {
+    selected[extras[Math.floor(i * extras.length / remaining)]] = true;
+  }
+  return selected;
+}
 
 function setAtlasPosition(el, index) {
   el.style.setProperty('--atlas-x', ((index % ORBIT_ATLAS_COLUMNS) / (ORBIT_ATLAS_COLUMNS - 1) * 100).toFixed(3) + '%');
@@ -89,6 +132,7 @@ function renderOrbit(stories) {
   var clusterColors = ['#8f83d8', '#e28b8b', '#75a998', '#d49a54', '#8aa6d1'];
   var goldenAngle = Math.PI * (3 - Math.sqrt(5));
   var atlasIndex = 0;
+  var selectedPhotos = selectOrbitPhotos(stories, orbitProfile.maxNodes);
 
   stories.forEach(function (story, storyIndex) {
     var t = stories.length === 1 ? 0.5 : storyIndex / (stories.length - 1);
@@ -102,6 +146,10 @@ function renderOrbit(stories) {
 
     story.photos.forEach(function (photo, photoIndex) {
       photo.atlasIndex = atlasIndex;
+      var currentAtlasIndex = atlasIndex;
+      atlasIndex += 1;
+      if (selectedPhotos && !selectedPhotos[storyIndex + ':' + photoIndex]) return;
+
       var localAngle = photoIndex * goldenAngle + storyIndex * 0.31;
       var localRadius = story.photos.length === 1 ? 0 : 0.075 + 0.048 * Math.sqrt(photoIndex);
       var vector = normalize([
@@ -115,7 +163,7 @@ function renderOrbit(stories) {
       button.type = 'button';
       button.style.setProperty('--cluster-color', clusterColors[storyIndex % clusterColors.length]);
       button.style.setProperty('--photo-tilt', (((photoIndex * 7 + storyIndex * 3) % 13) - 6) + 'deg');
-      setAtlasPosition(button, atlasIndex);
+      setAtlasPosition(button, currentAtlasIndex);
       button.dataset.storyIndex = String(storyIndex);
       button.dataset.photoIndex = String(photoIndex);
       button.setAttribute('aria-label', story.event.date + '，' + story.event.title + '，第' + (photoIndex + 1) + '张照片');
@@ -129,16 +177,18 @@ function renderOrbit(stories) {
         interactive: null,
         keyboard: null,
         visible: null,
+        zIndex: null,
         z: -1
       };
       nodes.push(node);
-      atlasIndex += 1;
       button.addEventListener('click', function () {
         if (!drag.moved) openMemory(storyIndex, photoIndex, button);
       });
     });
   });
   orbitStage.appendChild(fragment);
+  orbitEl.dataset.orbitProfile = orbitProfile.name;
+  orbitEl.dataset.orbitNodes = String(nodes.length);
 
   var atlasImage = new Image();
   atlasImage.onload = function () { orbitEl.classList.add('is-ready'); };
@@ -177,13 +227,19 @@ function renderOrbit(stories) {
       var y = y2 * radius * perspective;
 
       node.z = z2;
-      node.el.style.transform = 'translate3d(' + x.toFixed(1) + 'px,' + y.toFixed(1) + 'px,0) scale(' + scale.toFixed(3) + ') rotate(' + node.el.style.getPropertyValue('--photo-tilt') + ')';
-      node.el.style.opacity = opacity.toFixed(3);
-      node.el.style.zIndex = String(Math.round(depth * 1000));
-      var visible = z2 > -0.56;
+      var visible = z2 > orbitProfile.visibilityThreshold;
       if (visible !== node.visible) {
         node.visible = visible;
         node.el.style.visibility = visible ? 'visible' : 'hidden';
+      }
+      if (visible) {
+        node.el.style.transform = 'translate3d(' + x.toFixed(1) + 'px,' + y.toFixed(1) + 'px,0) scale(' + scale.toFixed(3) + ') rotate(' + node.el.style.getPropertyValue('--photo-tilt') + ')';
+        node.el.style.opacity = opacity.toFixed(3);
+        var nextZIndex = Math.round(depth * 100);
+        if (nextZIndex !== node.zIndex) {
+          node.zIndex = nextZIndex;
+          node.el.style.zIndex = String(nextZIndex);
+        }
       }
       var interactive = z2 > 0.03;
       if (interactive !== node.interactive) {
@@ -211,7 +267,7 @@ function renderOrbit(stories) {
 
   function animate(now) {
     if (!inView) { frame = 0; return; }
-    if (now - lastFrame < 30) { frame = requestAnimationFrame(animate); return; }
+    if (now - lastFrame < orbitProfile.frameInterval) { frame = requestAnimationFrame(animate); return; }
     var delta = Math.min(40, now - lastFrame);
     lastFrame = now;
     if (!drag.active && !reducedMotion) {
@@ -273,7 +329,6 @@ function renderOrbit(stories) {
     drag.x = e.clientX;
     drag.y = e.clientY;
     drag.time = performance.now();
-    positionNodes();
   });
 
   function endDrag() {
@@ -406,6 +461,7 @@ function initMemoryModal(stories) {
 /* ---------- 爱心粒子 ---------- */
 (function makeHearts() {
   var layer = document.getElementById('hearts');
+  if (document.documentElement.classList.contains('orbit-reduced-fx')) return;
   for (var i = 0; i < 16; i++) {
     var h = document.createElement('span');
     h.className = 'heart';

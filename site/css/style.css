@@ -449,6 +449,7 @@ body.loaded .hero-portrait { animation: fadeOpacity 1s ease 0.6s both; }
   background-color: color-mix(in srgb, var(--cluster-color) 15%, #f8f6fb);
   box-shadow: 0 7px 22px rgba(62, 53, 83, 0.16), 0 0 0 1px color-mix(in srgb, var(--cluster-color) 52%, transparent);
   cursor: pointer;
+  contain: layout paint style;
   will-change: transform, opacity;
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
@@ -496,6 +497,29 @@ body.loaded .hero-portrait { animation: fadeOpacity 1s ease 0.6s both; }
 .orbit-caption span { color: var(--ink-soft); font-size: 0.76rem; }
 .orbit-caption strong { overflow: hidden; font-size: 0.92rem; text-overflow: ellipsis; }
 .orbit-caption span:last-child { color: var(--accent-deep); }
+
+/* 触摸设备和低配置设备使用较轻的合成效果 */
+.orbit-reduced-fx .memory-orbit {
+  box-shadow: inset 0 0 34px rgba(255, 255, 255, 0.62), 0 10px 28px rgba(82, 68, 122, 0.1);
+}
+.orbit-reduced-fx .orbit-photo {
+  box-shadow: 0 4px 12px rgba(62, 53, 83, 0.13);
+  transition: none;
+  will-change: auto;
+}
+.orbit-reduced-fx .orbit-photo.is-nearest {
+  box-shadow: 0 6px 18px rgba(62, 53, 83, 0.18), 0 0 0 2px var(--cluster-color);
+}
+.orbit-reduced-fx .orbit-caption {
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 5px 16px rgba(64, 53, 91, 0.1);
+  backdrop-filter: none;
+}
+.orbit-reduced-fx .modal-backdrop,
+.orbit-reduced-fx .detail-photo-count {
+  backdrop-filter: none;
+}
+.orbit-reduced-fx .heart { display: none; }
 .orbit-help {
   display: flex;
   justify-content: center;
