@@ -1,44 +1,42 @@
 'use strict';
 
 /* ---------- Hero 载入淡入 ---------- */
-window.addEventListener('load', function () {
-  document.body.classList.add('loaded');
-});
+document.body.classList.add('loaded');
 
-/* ---------- Hero 主图跟随 ---------- */
-(function initHeroPortraitFollow() {
+/* ---------- 固定合照的轻微倾斜 ---------- */
+(function initHeroPortraitTilt() {
   var hero = document.querySelector('.hero');
   var portrait = hero && hero.querySelector('.hero-portrait-pos');
-  if (!hero || !portrait) return;
-  var frame = 0;
-  var targetX = 0;
-  var targetY = 0;
-
-  function moveTo(clientX, clientY) {
-    var heroRect = hero.getBoundingClientRect();
-    var halfWidth = portrait.offsetWidth / 2;
-    var halfHeight = portrait.offsetHeight / 2;
-    var x = Math.max(halfWidth, Math.min(heroRect.width - halfWidth, clientX - heroRect.left));
-    var y = Math.max(halfHeight, Math.min(heroRect.height - halfHeight, clientY - heroRect.top));
-    portrait.style.transform = 'translate3d(calc(-50% + ' + (x - heroRect.width / 2).toFixed(1) + 'px), calc(-50% + ' + (y - heroRect.height / 2).toFixed(1) + 'px), 0)';
-  }
-
+  if (!portrait || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
   hero.addEventListener('pointermove', function (e) {
     if (e.pointerType !== 'mouse') return;
-    targetX = e.clientX;
-    targetY = e.clientY;
-    if (frame) return;
-    frame = requestAnimationFrame(function () {
-      frame = 0;
-      moveTo(targetX, targetY);
-    });
+    var rect = hero.getBoundingClientRect();
+    var x = (e.clientX - rect.left) / rect.width - 0.5;
+    var y = (e.clientY - rect.top) / rect.height - 0.5;
+    portrait.style.transform = 'perspective(900px) rotateX(' + (-y * 5).toFixed(1) + 'deg) rotateY(' + (x * 5).toFixed(1) + 'deg) rotate(3deg)';
   });
-
-  hero.addEventListener('pointerdown', function (e) {
-    if (e.pointerType === 'mouse' || !e.isPrimary || e.target.closest('a, button, input')) return;
-    moveTo(e.clientX, e.clientY);
+  hero.addEventListener('pointerleave', function () {
+    portrait.style.transform = '';
   });
 })();
+
+/* ---------- 继续上一次的回忆 ---------- */
+var memoryVisit = { view: 'orbit', month: 'all', scrollY: 0, yaw: -0.48, pitch: -0.08 };
+var resumeVisit = new URLSearchParams(location.search).get('resume') === '1';
+if (resumeVisit) {
+  try {
+    var savedVisit = JSON.parse(sessionStorage.getItem('story-last-visit'));
+    if (savedVisit) Object.assign(memoryVisit, savedVisit);
+  } catch (e) {}
+}
+var saveOrbitPosition = function () {};
+function saveMemoryVisit() {
+  saveOrbitPosition();
+  memoryVisit.scrollY = window.scrollY;
+  try { sessionStorage.setItem('story-last-visit', JSON.stringify(memoryVisit)); } catch (e) {}
+}
+window.addEventListener('pagehide', saveMemoryVisit);
+document.querySelector('.egg-footer').addEventListener('click', saveMemoryVisit);
 
 /* ---------- 照片故事球 ---------- */
 var orbitEl = document.getElementById('memory-orbit');
@@ -109,9 +107,117 @@ Promise.all([
   }).filter(function (story) { return story.photos.length; });
   renderOrbit(stories);
   initMemoryModal(stories);
+  initMemoryViews(stories);
+  var linkedMemory = new URLSearchParams(location.search).get('memory');
+  var linkedIndex = stories.findIndex(function (story) { return story.event.folder === linkedMemory; });
+  if (linkedIndex >= 0) {
+    document.getElementById('photos').scrollIntoView();
+    openMemory(linkedIndex, 0, orbitEl);
+  }
+  if (resumeVisit) {
+    requestAnimationFrame(function () {
+      window.scrollTo({ top: memoryVisit.scrollY || document.getElementById('photos').offsetTop, behavior: 'instant' });
+    });
+  }
 }).catch(function (e) {
   galleryError.textContent = '照片暂时没有排好队：' + e.message;
 });
+
+function initMemoryViews(stories) {
+  var orbitPanel = document.getElementById('orbit-panel');
+  var timelinePanel = document.getElementById('timeline-panel');
+  var orbitButton = document.getElementById('view-orbit');
+  var timelineButton = document.getElementById('view-timeline');
+  var monthSelect = document.getElementById('memory-month');
+  var timeline = document.getElementById('timeline-list');
+  var summary = document.getElementById('gallery-summary');
+  var months = [];
+
+  function monthOf(story) { return story.event.folder.split('.').slice(0, 2).join('.'); }
+  function monthLabel(month) { var parts = month.split('.'); return parts[0] + ' 年 ' + parts[1] + ' 月'; }
+  function makeText(tag, className, text) {
+    var el = document.createElement(tag);
+    el.className = className;
+    el.textContent = text;
+    return el;
+  }
+  function makeCard(story, index) {
+    var button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'memory-card';
+    button.dataset.storyIndex = String(index);
+    button.setAttribute('aria-label', story.event.date + '，' + story.event.title + '，查看回忆');
+    var photo = story.photos[0];
+    var image = document.createElement('img');
+    image.src = photo.thumb || photo.src;
+    image.alt = '';
+    image.width = 560;
+    image.height = 350;
+    image.loading = 'lazy';
+    image.decoding = 'async';
+    button.appendChild(image);
+    var copy = makeText('span', 'memory-card-copy', '');
+    copy.appendChild(makeText('span', 'memory-card-date', story.event.date));
+    copy.appendChild(makeText('strong', '', story.event.title));
+    copy.appendChild(makeText('span', 'memory-card-excerpt', story.event.text));
+    var meta = makeText('span', 'memory-card-meta', '');
+    meta.appendChild(makeText('span', '', story.photos.length + ' 张照片'));
+    meta.appendChild(makeText('span', '', '打开回忆 ↗'));
+    copy.appendChild(meta);
+    button.appendChild(copy);
+    button.addEventListener('click', function () { openMemory(index, 0, button); });
+    return button;
+  }
+  stories.forEach(function (story) {
+    var month = monthOf(story);
+    if (months.indexOf(month) === -1) months.push(month);
+  });
+  months.forEach(function (month) {
+    var option = document.createElement('option');
+    option.value = month;
+    option.textContent = monthLabel(month);
+    monthSelect.appendChild(option);
+  });
+  monthSelect.value = months.indexOf(memoryVisit.month) !== -1 ? memoryVisit.month : 'all';
+
+  function renderTimeline() {
+    timeline.replaceChildren();
+    months.forEach(function (month) {
+      if (monthSelect.value !== 'all' && monthSelect.value !== month) return;
+      var section = document.createElement('section');
+      section.className = 'timeline-month';
+      section.appendChild(makeText('h3', '', monthLabel(month)));
+      var entries = makeText('div', 'timeline-entries', '');
+      stories.forEach(function (story, index) {
+        if (monthOf(story) === month) entries.appendChild(makeCard(story, index));
+      });
+      section.appendChild(entries);
+      timeline.appendChild(section);
+    });
+  }
+  function updateSummary() {
+    var shown = stories.filter(function (story) { return memoryVisit.view === 'orbit' || monthSelect.value === 'all' || monthOf(story) === monthSelect.value; });
+    var count = shown.reduce(function (sum, story) { return sum + story.photos.length; }, 0);
+    summary.textContent = shown.length + ' 段回忆 · ' + count + ' 张照片';
+  }
+  function setView(view) {
+    memoryVisit.view = view;
+    orbitPanel.hidden = view !== 'orbit';
+    timelinePanel.hidden = view !== 'timeline';
+    orbitButton.setAttribute('aria-pressed', String(view === 'orbit'));
+    timelineButton.setAttribute('aria-pressed', String(view === 'timeline'));
+    if (view === 'timeline') renderTimeline();
+    updateSummary();
+  }
+  orbitButton.addEventListener('click', function () { setView('orbit'); });
+  timelineButton.addEventListener('click', function () { setView('timeline'); });
+  monthSelect.addEventListener('change', function () {
+    memoryVisit.month = monthSelect.value;
+    renderTimeline();
+    updateSummary();
+  });
+  setView(memoryVisit.view === 'timeline' ? 'timeline' : 'orbit');
+}
 
 function normalize(v) {
   var length = Math.sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2]) || 1;
@@ -196,7 +302,8 @@ function renderOrbit(stories) {
   atlasImage.src = 'img/orbit-atlas.webp';
   if (atlasImage.complete && atlasImage.naturalWidth) orbitEl.classList.add('is-ready');
 
-  var state = { yaw: -0.48, pitch: -0.08, vx: 0, vy: 0 };
+  var state = { yaw: memoryVisit.yaw, pitch: memoryVisit.pitch, vx: 0, vy: 0 };
+  saveOrbitPosition = function () { memoryVisit.yaw = state.yaw; memoryVisit.pitch = state.pitch; };
   var drag = { active: false, moved: false, x: 0, y: 0, time: 0, pointerId: null, capturePending: false };
   var activeNodeIndex = -1;
   var reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -377,6 +484,21 @@ function initMemoryModal(stories) {
   var currentPhoto = 0;
   var returnFocus = null;
   var hideTimer = 0;
+  var perspectiveForm = document.getElementById('perspective-form');
+  var perspectiveText = document.getElementById('perspective-text');
+  var perspectiveStatus = document.getElementById('perspective-status');
+  var background = document.querySelectorAll('body > header, body > main, body > .egg-footer');
+
+  perspectiveForm.addEventListener('submit', function (e) {
+    e.preventDefault();
+    var key = 'story-perspective:' + stories[currentStory].event.folder;
+    try {
+      if (perspectiveText.value.trim()) localStorage.setItem(key, perspectiveText.value);
+      else localStorage.removeItem(key);
+      perspectiveStatus.textContent = perspectiveText.value.trim() ? '已保存在此浏览器' : '已清空这一段';
+    } catch (err) { perspectiveStatus.textContent = '未能保存，请先复制文字留存。'; }
+  });
+  perspectiveText.addEventListener('input', function () { perspectiveStatus.textContent = '尚未保存'; });
 
   function showPhoto(index) {
     var story = stories[currentStory];
@@ -417,11 +539,18 @@ function initMemoryModal(stories) {
     date.textContent = story.event.date;
     title.textContent = story.event.title;
     text.textContent = story.event.text;
+    perspectiveText.value = '';
+    perspectiveStatus.textContent = '';
+    try { perspectiveText.value = localStorage.getItem('story-perspective:' + story.event.folder) || ''; } catch (e) {}
+    if (perspectiveText.value) perspectiveStatus.textContent = '已读取此浏览器的记录';
     buildThumbs(story);
     showPhoto(photoIndex);
     clearTimeout(hideTimer);
     modal.hidden = false;
     document.body.classList.add('modal-open');
+    background.forEach(function (el) { el.inert = true; });
+    dialog.scrollTop = 0;
+    modal.querySelector('.detail-copy').scrollTop = 0;
     requestAnimationFrame(function () {
       modal.classList.add('is-open');
       dialog.focus();
@@ -432,10 +561,11 @@ function initMemoryModal(stories) {
     if (modal.hidden) return;
     modal.classList.remove('is-open');
     document.body.classList.remove('modal-open');
+    background.forEach(function (el) { el.inert = false; });
     hideTimer = setTimeout(function () {
       modal.hidden = true;
       image.src = '';
-      if (returnFocus && document.contains(returnFocus)) returnFocus.focus();
+      if (returnFocus && document.contains(returnFocus)) returnFocus.focus({ preventScroll: true });
     }, 220);
   }
 
@@ -446,14 +576,15 @@ function initMemoryModal(stories) {
 
   modal.addEventListener('keydown', function (e) {
     if (e.key === 'Escape') { closeModal(); return; }
-    if (e.key === 'ArrowLeft') { e.preventDefault(); showPhoto(currentPhoto - 1); return; }
-    if (e.key === 'ArrowRight') { e.preventDefault(); showPhoto(currentPhoto + 1); return; }
+    var editing = e.target.tagName === 'TEXTAREA';
+    if (!editing && e.key === 'ArrowLeft') { e.preventDefault(); showPhoto(currentPhoto - 1); return; }
+    if (!editing && e.key === 'ArrowRight') { e.preventDefault(); showPhoto(currentPhoto + 1); return; }
     if (e.key !== 'Tab') return;
-    var focusable = modal.querySelectorAll('button:not([disabled])');
+    var focusable = Array.prototype.filter.call(modal.querySelectorAll('button:not([disabled]), textarea'), function (el) { return el.getClientRects().length; });
     if (!focusable.length) return;
     var first = focusable[0];
     var last = focusable[focusable.length - 1];
-    if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+    if (e.shiftKey && (document.activeElement === first || document.activeElement === dialog)) { e.preventDefault(); last.focus(); }
     else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
   });
 }

@@ -8,7 +8,7 @@
   <link rel="preload" as="image" href="img/orbit-atlas.webp" type="image/webp">
   <link rel="preload" as="image" href="img/gate/girl.png" type="image/png">
   <link rel="preload" as="image" href="img/gate/boy.png" type="image/png">
-  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/style.css?v=20260923-1">
 </head>
 <body>
   <div id="gate" class="gate" role="dialog" aria-modal="true" aria-label="江西会合入口">
@@ -46,16 +46,22 @@
 
   <header class="hero" id="top">
     <div class="hero-heading-wrap" data-fade="0.15">
-      <h1 class="hero-heading">大大怪将军与小小怪下士</h1>
+      <p class="gallery-kicker">OUR STORY · 2025 — 2026</p>
+      <h1 class="hero-heading"><span>大大怪将军</span><span><small>与</small>小小怪下士</span></h1>
+      <p class="hero-intro">有些日子，想和你再过一遍。</p>
+      <div class="hero-actions">
+        <a class="pill-btn" href="#photos">打开我们的回忆 <span aria-hidden="true">↓</span></a>
+      </div>
     </div>
     <div class="hero-portrait-pos">
       <div class="hero-portrait" id="hero-portrait" data-fade="0.6">
-        <img src="img/2026-4-21/hero.webp" alt="" width="520" height="360" fetchpriority="high" decoding="async">
+        <img src="img/2026-4-21/hero.webp" alt="我们的合照" width="520" height="360" fetchpriority="high" decoding="async">
+        <p class="portrait-caption">2026.04.21 <span>漂亮合照</span></p>
       </div>
     </div>
     <div class="hero-bottom">
       <p class="hero-tag" data-fade="0.35">第一次加载可能要有点长时间，不要着急吼</p>
-      <a class="pill-btn" href="#photos" data-fade="0.5">往下看 ↓</a>
+      <span class="hero-chapter">01 / 我们的故事</span>
     </div>
   </header>
 
@@ -63,9 +69,18 @@
     <div class="gallery-copy">
       <p class="gallery-kicker">OUR LITTLE UNIVERSE</p>
       <h2 id="gallery-title">把我们的故事转到眼前</h2>
-      <p>拖动照片球，点开任意一张。靠在一起的照片属于同一段回忆，也会打开同一份文字。</p>
+      <p>拖动照片球，点开任意一张。靠在一起的照片属于同一段回忆，也会打开双方的记忆。</p>
     </div>
 
+    <div class="gallery-toolbar">
+      <div class="view-switch" role="group" aria-label="回忆浏览方式">
+        <button id="view-orbit" type="button" aria-pressed="true" aria-controls="orbit-panel">转转照片球</button>
+        <button id="view-timeline" type="button" aria-pressed="false" aria-controls="timeline-panel">按时间查看</button>
+      </div>
+      <p id="gallery-summary" class="gallery-summary" aria-live="polite">正在整理回忆…</p>
+    </div>
+
+    <div id="orbit-panel">
     <div class="orbit-shell">
       <div
         class="memory-orbit"
@@ -90,7 +105,16 @@
     <p class="orbit-help" id="orbit-help">
       <span>拖动旋转</span><i aria-hidden="true"></i><span>点击阅读</span><i aria-hidden="true"></i><span>方向键也可以</span>
     </p>
+    </div>
+    <section class="timeline-panel" id="timeline-panel" aria-label="回忆时间轴" hidden>
+      <div class="timeline-filter">
+        <p>每一段回忆，都有自己的位置。</p>
+        <label for="memory-month">月份 <select id="memory-month"><option value="all">全部月份</option></select></label>
+      </div>
+      <div id="timeline-list" class="timeline-list"></div>
+    </section>
     <p class="gallery-error" id="gallery-error" role="status"></p>
+
   </main>
 
   <div class="memory-modal" id="memory-modal" hidden>
@@ -113,7 +137,14 @@
       <div class="detail-copy">
         <p class="detail-date" id="detail-date"></p>
         <h3 id="detail-title"></h3>
+        <p class="perspective-label">大大怪记得的</p>
         <p class="detail-text" id="detail-text"></p>
+        <form class="perspective-form" id="perspective-form">
+          <label for="perspective-text">小小怪记得的</label>
+          <textarea id="perspective-text" rows="4" maxlength="2000" placeholder="那一天，你还记得什么？" aria-describedby="perspective-storage-note"></textarea>
+          <p id="perspective-storage-note">仅保存在当前浏览器，不会同步给对方。</p>
+          <div class="perspective-save"><button class="small-btn" type="submit">保存这一段</button><span id="perspective-status" role="status"></span></div>
+        </form>
         <p class="detail-note"><span aria-hidden="true">✦</span> 这一小簇照片，共用这一段回忆</p>
       </div>
     </article>
@@ -124,7 +155,7 @@
 
   <div id="hearts" aria-hidden="true"></div>
 
-  <script src="js/gate.js"></script>
-  <script src="js/app.js"></script>
+  <script src="js/gate.js?v=20260923-1"></script>
+  <script src="js/app.js?v=20260923-2"></script>
 </body>
 </html>

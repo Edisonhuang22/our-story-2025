@@ -3,9 +3,10 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>一个彩蛋 · 大大怪将军与小小怪下士</title>
+  <title>我们的信箱 · 大大怪将军与小小怪下士</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🥚</text></svg>">
-  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/style.css?v=20260923-1">
+  <link rel="stylesheet" href="css/mailbox.css?v=20260923-4">
   <link rel="preload" as="image" href="img/gate/girl.png" type="image/png">
   <link rel="preload" as="image" href="img/gate/boy.png" type="image/png">
   <style>
@@ -17,9 +18,7 @@
       display: flex;
       flex-direction: column;
       gap: 2.2rem;
-      opacity: 0;
     }
-    body.loaded .egg-page { animation: fadeOpacity 0.9s ease 0.2s both; }
     .egg-top { text-align: center; }
     .egg-big {
       font-size: 64px;
@@ -63,7 +62,7 @@
     .essay-date { color: var(--accent); font-weight: 600; font-size: 0.85rem; letter-spacing: 0.14em; }
     .essay-title { margin-top: 0.35rem; font-size: 1.15rem; color: var(--ink); font-weight: 700; }
     .essay-body { display: flex; flex-direction: column; gap: 1.1em; }
-    .essay-p { color: var(--ink-soft); font-size: 1.02rem; line-height: 2; text-align: justify; }
+    .essay-p { color: #514b5b; font-size: 1.02rem; line-height: 2; text-align: justify; }
     .essay-sign {
       text-align: right;
       color: var(--accent-deep);
@@ -82,7 +81,8 @@
       transition: filter 0.2s ease;
     }
     .egg-back:hover { filter: brightness(0.97); border-color: var(--accent); }
-    .egg-foot { text-align: center; color: #c9a9b6; font-size: 0.78rem; letter-spacing: 0.1em; margin-top: 0.2rem; }
+    .egg-foot { text-align: center; color: #786171; font-size: 0.78rem; letter-spacing: 0.1em; margin-top: 0.2rem; }
+    .egg-navigation { display: flex; justify-content: center; flex-wrap: wrap; gap: 0.8rem; }
   </style>
 </head>
 <body>
@@ -125,10 +125,50 @@
 
   <main class="egg-page">
     <section class="egg-top">
-      <span class="egg-big" id="egg-big" title="点我一下试试">🥚</span>
-      <p class="egg-kicker">你发现了一个彩蛋</p>
+      <button class="egg-big" id="egg-big" type="button" title="点我一下试试" aria-label="打开彩蛋">🥚</button>
+      <p class="egg-kicker">LETTERS BETWEEN US</p>
+      <h1 class="mailbox-title">我们的信箱</h1>
+      <p class="egg-sub">有些话，写下来，留着慢慢读。</p>
     </section>
 
+    <section id="mailbox-list" aria-labelledby="mailbox-list-title">
+      <div class="mailbox-toolbar">
+        <div><h2 id="mailbox-list-title" tabindex="-1">收好的信</h2><p id="letter-count"></p></div>
+        <button class="small-btn" id="write-letter" type="button">写一封信 ↗</button>
+      </div>
+      <div class="letter-list" id="letter-list"></div>
+      <div class="stack-controls"><button class="mail-link" id="previous-envelope" type="button">← 上一封</button><span id="stack-position" aria-live="polite"></span><button class="mail-link" id="next-envelope" type="button">下一封 →</button></div>
+      <button class="draft-link" id="resume-draft" type="button" hidden>继续上次没写完的信 →</button>
+      <p class="mailbox-local-note">文字和照片只保存在当前浏览器，不会自动寄给对方。清除浏览器数据会丢失，请保留信件照片原件；电子版可下载留存。</p>
+    </section>
+
+    <section class="letter-compose" id="letter-compose" aria-labelledby="compose-title" hidden>
+      <div class="mailbox-toolbar"><h2 id="compose-title" tabindex="-1">写一封信</h2><button class="mail-link" id="cancel-letter" type="button">收起，回到信箱</button></div>
+      <form id="letter-form">
+        <div class="letter-fields">
+          <label>写信人<select id="letter-sender"><option>大大怪</option><option>小小怪</option></select></label>
+          <label>写信日期<input id="letter-date" type="date" required></label>
+        </div>
+        <label>信的标题<input id="letter-title" maxlength="80" required placeholder="给这封信起一个名字"></label>
+        <label>电子版内容<textarea id="letter-body" rows="12" maxlength="30000" placeholder="慢慢写，也可以只收录实体信照片。"></textarea></label>
+        <section class="paper-photos"><h3>实体信件照片</h3><p>可以和电子版一起保存，多页信件按添加顺序展示。</p><input id="compose-photo-input" type="file" accept="image/jpeg,image/png,image/webp" multiple aria-label="添加实体信件照片"><div id="compose-photos" class="photo-grid"></div></section>
+        <label>关联一段回忆（可选）<select id="letter-memory"><option value="">不关联回忆</option></select></label>
+        <div class="letter-form-footer"><button class="small-btn" type="submit">收进信箱</button><span id="draft-status" role="status"></span></div>
+      </form>
+    </section>
+
+    <section id="letter-reader" aria-label="信件阅读" hidden>
+      <div class="mailbox-toolbar reader-toolbar">
+        <button class="mail-link" id="back-to-mailbox" type="button">← 回到信箱</button>
+        <div class="reader-actions"><button class="mail-link" id="edit-letter" type="button" hidden>修改这封信</button><button class="mail-link" id="download-letter" type="button">下载文字</button></div>
+      </div>
+      <div id="letter-content" tabindex="-1"></div>
+      <section class="paper-photos"><h3>纸上的字迹</h3><p>收好这封信的实体照片，点击可放大阅读。</p><input id="reader-photo-input" type="file" accept="image/jpeg,image/png,image/webp" multiple aria-label="为这封信添加实体照片"><div id="reader-photos" class="photo-grid"></div></section>
+      <a class="letter-memory-link" id="letter-memory-link" hidden>看看这封信里的回忆 ↗</a>
+    </section>
+    <p class="mailbox-status" id="mailbox-status" role="status"></p>
+
+    <template id="original-letter">
     <article class="essay">
       <header class="essay-head">
         <p class="essay-date">2026.08.19</p>
@@ -145,16 +185,22 @@
         <p class="essay-p essay-sign">——皇叔皇叔</p>
       </div>
     </article>
+    </template>
 
-    <a class="egg-back" href="index.html">← 回到故事首页</a>
+    <div class="egg-navigation">
+      <a class="egg-back" href="index.html?resume=1#photos">← 继续看回忆</a>
+      <a class="egg-back" href="index.html">回到故事首页</a>
+    </div>
     <p class="egg-foot">P.S. 能找到这里的人，一定认真看到了最后吧。</p>
   </main>
 
   <div id="hearts" aria-hidden="true"></div>
 
-  <script src="js/gate.js"></script>
+  <script src="js/gate.js?v=20260923-1"></script>
+  <dialog id="photo-viewer"><div class="photo-viewer-toolbar"><button id="photo-previous" type="button">上一页</button><span id="photo-page"></span><button id="photo-next" type="button">下一页</button><button id="photo-zoom" type="button">查看原尺寸</button><button id="photo-close" type="button">关闭 ×</button></div><div class="photo-viewer-scroll"><img id="photo-full" alt="实体信件照片"></div></dialog>
+  <script src="js/mailbox.js?v=20260923-4"></script>
   <script>
-    window.addEventListener('load', function () { document.body.classList.add('loaded'); });
+    document.body.classList.add('loaded');
 
     /* 点一下鸡蛋孵小鸡 */
     (function initEggClick() {

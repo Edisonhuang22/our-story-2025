@@ -18,12 +18,17 @@
 
   var already = false;
   try { already = sessionStorage.getItem('unlocked') === '1'; } catch (e) {}
-  if (already) {
-    gate.classList.add('hidden');
-    gate.setAttribute('aria-hidden', 'true');
-    return;
+  try { already = already || localStorage.getItem('story-gate-complete') === '1'; } catch (e) {}
+  var background = document.querySelectorAll('body > header, body > main, body > .egg-footer, body > .memory-modal');
+
+  function setGateOpen(open) {
+    gate.classList.toggle('is-visible', open);
+    gate.setAttribute('aria-hidden', String(!open));
+    gate.inert = !open;
+    document.body.classList.toggle('gate-open', open);
+    background.forEach(function (el) { el.inert = open; });
   }
-  document.body.classList.add('gate-open');
+  setGateOpen(!already);
 
   function createPerson(id, label, x, y, snapOffset) {
     return {
@@ -88,11 +93,12 @@
     gate.classList.add('is-complete');
     status.textContent = '大大怪学长和小小怪学妹都到江西啦，正在打开我们的宇宙…';
     try { sessionStorage.setItem('unlocked', '1'); } catch (e) {}
+    try { localStorage.setItem('story-gate-complete', '1'); } catch (e) {}
     setTimeout(function () {
-      gate.classList.add('hidden');
-      gate.setAttribute('aria-hidden', 'true');
-      document.body.classList.remove('gate-open');
-    }, 1300);
+      setGateOpen(false);
+      var nextFocus = document.querySelector('.hero-actions .pill-btn, .egg-back');
+      if (nextFocus) nextFocus.focus({ preventScroll: true });
+    }, window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 850);
   }
 
   function startDrag(person, e) {
@@ -155,6 +161,14 @@
     person.el.addEventListener('pointerup', function (e) { endDrag(person, e, true); });
     person.el.addEventListener('pointercancel', function (e) { endDrag(person, e, false); });
     person.el.addEventListener('keydown', function (e) { handleKeyboard(person, e); });
+  });
+
+  if (!already) people[0].el.focus({ preventScroll: true });
+  gate.addEventListener('keydown', function (e) {
+    if (e.key !== 'Tab') return;
+    e.preventDefault();
+    var next = document.activeElement === people[0].el ? people[1] : people[0];
+    next.el.focus();
   });
 
   window.addEventListener('resize', function () {
