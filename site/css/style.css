@@ -528,7 +528,8 @@ body.loaded .hero-portrait { animation: fadeOpacity 0.7s ease 0.1s both; }
   backdrop-filter: none;
 }
 .orbit-reduced-fx .modal-backdrop,
-.orbit-reduced-fx .detail-photo-count {
+.orbit-reduced-fx .detail-photo-count,
+.orbit-reduced-fx .detail-original {
   backdrop-filter: none;
 }
 .orbit-reduced-fx .heart { display: none; }
@@ -684,6 +685,22 @@ body.modal-open { overflow: hidden; }
   transition: opacity 0.16s ease;
 }
 #detail-image.is-loading { opacity: 0.38; }
+.detail-original {
+  position: absolute;
+  z-index: 2;
+  left: 12px;
+  bottom: 12px;
+  padding: 0.35rem 0.7rem;
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  border-radius: 999px;
+  background: rgba(48, 42, 62, 0.68);
+  color: #fff;
+  font: inherit;
+  font-size: 0.74rem;
+  cursor: pointer;
+  backdrop-filter: blur(8px);
+}
+.detail-original:disabled { cursor: wait; }
 .detail-photo-count {
   position: absolute;
   z-index: 2;

@@ -476,6 +476,7 @@ function initMemoryModal(stories) {
   var thumbs = document.getElementById('detail-thumbs');
   var prevBtn = document.getElementById('detail-prev');
   var nextBtn = document.getElementById('detail-next');
+  var originalBtn = document.getElementById('detail-original');
   var photoCount = document.getElementById('detail-photo-count');
   var date = document.getElementById('detail-date');
   var title = document.getElementById('detail-title');
@@ -483,6 +484,8 @@ function initMemoryModal(stories) {
   var currentPhoto = 0;
   var returnFocus = null;
   var hideTimer = 0;
+  var photoRequestId = 0;
+  var previewRequests = Object.create(null);
   var perspectiveForms = {
     '大大怪': document.getElementById('big-perspective-form'),
     '小小怪': document.getElementById('little-perspective-form')
@@ -569,16 +572,50 @@ function initMemoryModal(stories) {
     if (payload.new && payload.new.folder === stories[currentStory].event.folder) loadPerspectives();
   });
 
+  function previewSource(photo) {
+    return photo.card || photo.src;
+  }
+  function preloadPreview(photo) {
+    var src = previewSource(photo);
+    if (!src || previewRequests[src]) return;
+    var preload = new Image();
+    previewRequests[src] = preload;
+    preload.decoding = 'async';
+    preload.src = src;
+  }
+  function loadPhoto(photo, src, showingOriginal) {
+    var requestId = ++photoRequestId;
+    var story = stories[currentStory];
+    image.classList.add('is-loading');
+    image.onload = function () {
+      if (requestId !== photoRequestId) return;
+      image.classList.remove('is-loading');
+      if (showingOriginal) {
+        originalBtn.textContent = '已显示原图';
+        originalBtn.disabled = true;
+      }
+    };
+    image.onerror = function () {
+      if (requestId !== photoRequestId) return;
+      if (!showingOriginal && src !== photo.src) {
+        originalBtn.hidden = true;
+        loadPhoto(photo, photo.src, true);
+      }
+    };
+    image.src = src;
+    image.alt = story.event.title + '，第' + (currentPhoto + 1) + '张照片';
+    image.width = photo.w;
+    image.height = photo.h;
+  }
   function showPhoto(index) {
     var story = stories[currentStory];
     currentPhoto = (index + story.photos.length) % story.photos.length;
     var photo = story.photos[currentPhoto];
-    image.classList.add('is-loading');
-    image.onload = function () { image.classList.remove('is-loading'); };
-    image.src = photo.src;
-    image.alt = story.event.title + '，第' + (currentPhoto + 1) + '张照片';
-    image.width = photo.w;
-    image.height = photo.h;
+    var preview = previewSource(photo);
+    originalBtn.hidden = preview === photo.src;
+    originalBtn.disabled = false;
+    originalBtn.textContent = '查看原图';
+    loadPhoto(photo, preview, false);
     photoCount.textContent = (currentPhoto + 1) + ' / ' + story.photos.length;
     Array.prototype.forEach.call(thumbs.children, function (thumb, thumbIndex) {
       var selected = thumbIndex === currentPhoto;
@@ -586,6 +623,8 @@ function initMemoryModal(stories) {
       thumb.setAttribute('aria-current', selected ? 'true' : 'false');
       if (selected) thumb.scrollIntoView({ block: 'nearest', inline: 'center' });
     });
+    preloadPreview(story.photos[(currentPhoto + 1) % story.photos.length]);
+    preloadPreview(story.photos[(currentPhoto - 1 + story.photos.length) % story.photos.length]);
   }
 
   function buildThumbs(story) {
@@ -610,6 +649,7 @@ function initMemoryModal(stories) {
     Object.keys(perspectiveStatuses).forEach(function (author) { perspectiveStatuses[author].textContent = ''; });
     loadPerspectives();
     buildThumbs(story);
+    preloadPreview(story.photos[photoIndex]);
     showPhoto(photoIndex);
     clearTimeout(hideTimer);
     modal.hidden = false;
@@ -630,6 +670,7 @@ function initMemoryModal(stories) {
     background.forEach(function (el) { el.inert = false; });
     hideTimer = setTimeout(function () {
       modal.hidden = true;
+      photoRequestId++;
       image.src = '';
       if (returnFocus && document.contains(returnFocus)) returnFocus.focus({ preventScroll: true });
     }, 220);
@@ -639,6 +680,23 @@ function initMemoryModal(stories) {
   modal.querySelector('[data-modal-close]').addEventListener('click', closeModal);
   prevBtn.addEventListener('click', function () { showPhoto(currentPhoto - 1); });
   nextBtn.addEventListener('click', function () { showPhoto(currentPhoto + 1); });
+  originalBtn.addEventListener('click', function () {
+    var photo = stories[currentStory].photos[currentPhoto];
+    if (!photo || previewSource(photo) === photo.src) return;
+    var requestId = photoRequestId;
+    originalBtn.disabled = true;
+    originalBtn.textContent = '正在加载原图…';
+    var fullImage = new Image();
+    fullImage.onload = function () {
+      if (requestId === photoRequestId && !modal.hidden) loadPhoto(photo, photo.src, true);
+    };
+    fullImage.onerror = function () {
+      if (requestId !== photoRequestId || modal.hidden) return;
+      originalBtn.disabled = false;
+      originalBtn.textContent = '原图加载失败，重试';
+    };
+    fullImage.src = photo.src;
+  });
 
   modal.addEventListener('keydown', function (e) {
     if (e.key === 'Escape') { closeModal(); return; }

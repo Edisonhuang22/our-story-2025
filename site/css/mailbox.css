@@ -13,7 +13,8 @@ main.egg-page { max-width: 1000px; }
 .letter-envelope strong { font-size: 1.35rem; line-height: 1.6; padding-right: 30px; }
 .letter-envelope .letter-address { color: var(--ink-soft); font-size: 0.85rem; }
 .letter-envelope .letter-open { margin-top: auto; padding-top: 16px; color: var(--accent-deep); font-size: 0.78rem; }
-.mailbox-local-note { margin-top: 24px; color: var(--ink-soft); font-size: 0.78rem; }
+.mailbox-local-note { display: inline; margin-top: 24px; color: var(--ink-soft); font-size: 0.78rem; }
+#mailbox-sync-button { margin-left: 0.5rem; }
 .mail-link, .draft-link { border: 0; background: transparent; color: var(--accent-deep); cursor: pointer; font-size: 0.86rem; padding: 8px 0; }
 .mail-link:hover, .draft-link:hover { text-decoration: underline; text-underline-offset: 4px; }
 .draft-link { margin-top: 18px; }
