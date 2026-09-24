@@ -479,26 +479,95 @@ function initMemoryModal(stories) {
   var photoCount = document.getElementById('detail-photo-count');
   var date = document.getElementById('detail-date');
   var title = document.getElementById('detail-title');
-  var text = document.getElementById('detail-text');
   var currentStory = 0;
   var currentPhoto = 0;
   var returnFocus = null;
   var hideTimer = 0;
-  var perspectiveForm = document.getElementById('perspective-form');
-  var perspectiveText = document.getElementById('perspective-text');
-  var perspectiveStatus = document.getElementById('perspective-status');
+  var perspectiveForms = {
+    '大大怪': document.getElementById('big-perspective-form'),
+    '小小怪': document.getElementById('little-perspective-form')
+  };
+  var perspectiveTexts = {
+    '大大怪': document.getElementById('big-perspective-text'),
+    '小小怪': document.getElementById('little-perspective-text')
+  };
+  var perspectiveDisplays = {
+    '大大怪': document.getElementById('big-perspective-display'),
+    '小小怪': document.getElementById('little-perspective-display')
+  };
+  var perspectiveStatuses = {
+    '大大怪': document.getElementById('big-perspective-status'),
+    '小小怪': document.getElementById('little-perspective-status')
+  };
+  var perspectiveLogin = document.getElementById('perspective-login');
+  var perspectiveLoginButton = document.getElementById('perspective-login-button');
+  var perspectiveRows = {};
+  var perspectiveLoadId = 0;
   var background = document.querySelectorAll('body > header, body > main, body > .egg-footer');
 
-  perspectiveForm.addEventListener('submit', function (e) {
-    e.preventDefault();
-    var key = 'story-perspective:' + stories[currentStory].event.folder;
+  function defaultPerspective(author) {
+    return author === '大大怪' ? stories[currentStory].event.text : '';
+  }
+  function renderPerspectives() {
+    var role = window.storySync && window.storySync.getRole();
+    ['大大怪', '小小怪'].forEach(function (author) {
+      var body = Object.prototype.hasOwnProperty.call(perspectiveRows, author) ? perspectiveRows[author] : defaultPerspective(author);
+      perspectiveDisplays[author].textContent = body || '还没有写下这一段回忆。';
+      perspectiveDisplays[author].hidden = role === author;
+      perspectiveForms[author].hidden = role !== author;
+      if (role === author) perspectiveTexts[author].value = body;
+    });
+    perspectiveLogin.hidden = Boolean(role);
+  }
+  async function loadPerspectives() {
+    var folder = stories[currentStory].event.folder;
+    var requestId = ++perspectiveLoadId;
+    perspectiveRows = {};
+    renderPerspectives();
+    if (!window.storySync || !window.storySync.getRole()) return;
     try {
-      if (perspectiveText.value.trim()) localStorage.setItem(key, perspectiveText.value);
-      else localStorage.removeItem(key);
-      perspectiveStatus.textContent = perspectiveText.value.trim() ? '已保存在此浏览器' : '已清空这一段';
-    } catch (err) { perspectiveStatus.textContent = '未能保存，请先复制文字留存。'; }
+      var rows = await window.storySync.load(folder);
+      if (requestId !== perspectiveLoadId || folder !== stories[currentStory].event.folder) return;
+      rows.forEach(function (row) { perspectiveRows[row.author] = row.body; });
+      if (!Object.prototype.hasOwnProperty.call(perspectiveRows, '小小怪')) {
+        try {
+          var legacyLittle = localStorage.getItem('story-perspective:' + folder);
+          if (legacyLittle && window.storySync.getRole() === '小小怪') {
+            perspectiveRows['小小怪'] = legacyLittle;
+            perspectiveStatuses['小小怪'].textContent = '已带入旧记录，点“保存并同步”即可迁移。';
+          }
+        } catch (e) {}
+      }
+      renderPerspectives();
+    } catch (err) {
+      var role = window.storySync.getRole();
+      if (role) perspectiveStatuses[role].textContent = '同步暂不可用，请确认数据库脚本已运行。';
+    }
+  }
+  ['大大怪', '小小怪'].forEach(function (author) {
+    perspectiveForms[author].addEventListener('submit', async function (e) {
+      e.preventDefault();
+      if (!window.storySync || window.storySync.getRole() !== author) return;
+      var folder = stories[currentStory].event.folder;
+      perspectiveStatuses[author].textContent = '正在同步…';
+      try {
+        await window.storySync.save(folder, perspectiveTexts[author].value.trim());
+        perspectiveRows[author] = perspectiveTexts[author].value.trim();
+        perspectiveStatuses[author].textContent = '已同步给对方';
+        renderPerspectives();
+      } catch (err) {
+        perspectiveStatuses[author].textContent = '同步失败，请稍后重试。';
+      }
+    });
+    perspectiveTexts[author].addEventListener('input', function () {
+      perspectiveStatuses[author].textContent = '尚未同步';
+    });
   });
-  perspectiveText.addEventListener('input', function () { perspectiveStatus.textContent = '尚未保存'; });
+  perspectiveLoginButton.addEventListener('click', function () { window.storySync.openAuth(); });
+  window.storySync.onAuthChange(function () { renderPerspectives(); loadPerspectives(); });
+  window.storySync.onPerspectiveChange(function (payload) {
+    if (payload.new && payload.new.folder === stories[currentStory].event.folder) loadPerspectives();
+  });
 
   function showPhoto(index) {
     var story = stories[currentStory];
@@ -538,11 +607,8 @@ function initMemoryModal(stories) {
     var story = stories[storyIndex];
     date.textContent = story.event.date;
     title.textContent = story.event.title;
-    text.textContent = story.event.text;
-    perspectiveText.value = '';
-    perspectiveStatus.textContent = '';
-    try { perspectiveText.value = localStorage.getItem('story-perspective:' + story.event.folder) || ''; } catch (e) {}
-    if (perspectiveText.value) perspectiveStatus.textContent = '已读取此浏览器的记录';
+    Object.keys(perspectiveStatuses).forEach(function (author) { perspectiveStatuses[author].textContent = ''; });
+    loadPerspectives();
     buildThumbs(story);
     showPhoto(photoIndex);
     clearTimeout(hideTimer);
