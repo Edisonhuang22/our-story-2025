@@ -109,6 +109,57 @@
       .subscribe();
   }
 
+  async function loadGallery() {
+    var results = await Promise.all([
+      client.from('story_gallery_entries').select('folder,title,body,hidden'),
+      client.from('story_gallery_photos').select('id,folder,static_src,storage_path,hidden,created_at').order('created_at', { ascending: true })
+    ]);
+    if (results[0].error) throw results[0].error;
+    if (results[1].error) throw results[1].error;
+    return { entries: results[0].data || [], photos: results[1].data || [] };
+  }
+  function galleryPhotoUrl(path) {
+    return client.storage.from('story-gallery').getPublicUrl(path).data.publicUrl;
+  }
+  async function saveGalleryEntry(entry) {
+    if (!currentRole) throw new Error('请先登录');
+    var result = await client.from('story_gallery_entries').upsert(entry, { onConflict: 'folder' });
+    if (result.error) throw result.error;
+  }
+  async function deleteGalleryEntry(folder) {
+    if (!currentRole) throw new Error('请先登录');
+    var result = await client.from('story_gallery_entries').delete().eq('folder', folder);
+    if (result.error) throw result.error;
+  }
+  async function uploadGalleryPhoto(folder, file) {
+    if (!currentRole || !currentUser) throw new Error('请先登录');
+    var extension = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp' }[file.type];
+    if (!extension || file.size > 10485760) throw new Error('照片格式或大小不符合要求');
+    var path = currentUser.id + '/' + crypto.randomUUID() + '.' + extension;
+    var uploaded = await client.storage.from('story-gallery').upload(path, file, { contentType: file.type, upsert: false });
+    if (uploaded.error) throw uploaded.error;
+    var row = await client.from('story_gallery_photos').insert({ folder: folder, storage_path: path }).select('id,folder,storage_path').single();
+    if (row.error) {
+      await client.storage.from('story-gallery').remove([path]);
+      throw row.error;
+    }
+    return row.data;
+  }
+  async function setStaticGalleryPhotoHidden(folder, src, hidden) {
+    if (!currentRole) throw new Error('请先登录');
+    var result = await client.from('story_gallery_photos').upsert(
+      { folder: folder, static_src: src, hidden: hidden }, { onConflict: 'folder,static_src' }
+    );
+    if (result.error) throw result.error;
+  }
+  async function deleteGalleryPhoto(photo) {
+    if (!currentRole) throw new Error('请先登录');
+    var result = await client.from('story_gallery_photos').delete().eq('id', photo.id);
+    if (result.error) throw result.error;
+    var removal = await client.storage.from('story-gallery').remove([photo.storage_path]);
+    if (removal.error) throw removal.error;
+  }
+
   async function loadMailbox() {
     if (!currentRole) return { letters: [], photos: [] };
     var results = await Promise.all([
@@ -187,6 +238,13 @@
     load: load,
     save: save,
     onPerspectiveChange: onPerspectiveChange,
+    loadGallery: loadGallery,
+    galleryPhotoUrl: galleryPhotoUrl,
+    saveGalleryEntry: saveGalleryEntry,
+    deleteGalleryEntry: deleteGalleryEntry,
+    uploadGalleryPhoto: uploadGalleryPhoto,
+    setStaticGalleryPhotoHidden: setStaticGalleryPhotoHidden,
+    deleteGalleryPhoto: deleteGalleryPhoto,
     loadMailbox: loadMailbox,
     saveLetter: saveLetter,
     uploadLetterPhoto: uploadLetterPhoto,

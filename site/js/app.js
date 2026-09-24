@@ -98,16 +98,61 @@ function setAtlasPosition(el, index) {
 
 Promise.all([
   fetch('data/events.json').then(function (r) { if (!r.ok) throw new Error('文字数据读取失败'); return r.json(); }),
-  fetch('data/photos.json').then(function (r) { if (!r.ok) throw new Error('照片数据读取失败'); return r.json(); })
+  fetch('data/photos.json').then(function (r) { if (!r.ok) throw new Error('照片数据读取失败'); return r.json(); }),
+  window.storySync.loadGallery().catch(function (error) { return { error: error }; })
 ]).then(function (res) {
   var photosByFolder = {};
-  res[1].chapters.forEach(function (chapter) { photosByFolder[chapter.folder] = chapter.photos; });
+  res[1].chapters.forEach(function (chapter) {
+    photosByFolder[chapter.folder] = chapter.photos.map(function (photo) {
+      return Object.assign({}, photo, { staticSrc: photo.src });
+    });
+  });
+  var baseFolders = new Set(res[0].map(function (event) { return event.folder; }));
+  var atlasIndex = 0;
   var stories = res[0].map(function (event) {
-    return { event: event, photos: photosByFolder[event.folder] || [] };
-  }).filter(function (story) { return story.photos.length; });
+    var photos = photosByFolder[event.folder] || [];
+    photos.forEach(function (photo) { photo.atlasIndex = atlasIndex++; });
+    return { event: event, photos: photos };
+  });
+  var gallery = res[2];
+  if (!gallery.error) {
+    var byFolder = {};
+    stories.forEach(function (story) { byFolder[story.event.folder] = story; });
+    gallery.entries.forEach(function (entry) {
+      var story = byFolder[entry.folder];
+      if (!story) {
+        var parts = entry.folder.split('.');
+        story = { event: { folder: entry.folder, date: parts[0] + '年' + parts[1] + '月' + parts[2] + '日' }, photos: [] };
+        stories.push(story);
+        byFolder[entry.folder] = story;
+      }
+      story.event.title = entry.title;
+      story.event.text = entry.body;
+      story.hidden = entry.hidden;
+    });
+    gallery.photos.forEach(function (row) {
+      var story = byFolder[row.folder];
+      if (!story) return;
+      if (row.static_src) {
+        if (row.hidden) story.photos = story.photos.filter(function (photo) { return photo.src !== row.static_src; });
+      } else if (!row.hidden && row.storage_path) {
+        var url = window.storySync.galleryPhotoUrl(row.storage_path);
+        story.photos.push({ src: url, thumb: url, card: url, uploadId: row.id, storagePath: row.storage_path });
+      }
+    });
+  } else {
+    galleryError.textContent = '在线回忆暂不可用；现有照片仍可浏览。';
+  }
+  stories = stories.filter(function (story) { return !story.hidden && story.photos.length; });
+  stories.sort(function (a, b) {
+    var left = a.event.folder.split('.').map(Number);
+    var right = b.event.folder.split('.').map(Number);
+    return left[0] - right[0] || left[1] - right[1] || left[2] - right[2];
+  });
   renderOrbit(stories);
   initMemoryModal(stories);
   initMemoryViews(stories);
+  if (!gallery.error) window.initGalleryEditor(stories, gallery, baseFolders);
   var linkedMemory = new URLSearchParams(location.search).get('memory');
   var linkedIndex = stories.findIndex(function (story) { return story.event.folder === linkedMemory; });
   if (linkedIndex >= 0) {
@@ -237,7 +282,6 @@ function renderOrbit(stories) {
   var fragment = document.createDocumentFragment();
   var clusterColors = ['#8f83d8', '#e28b8b', '#75a998', '#d49a54', '#8aa6d1'];
   var goldenAngle = Math.PI * (3 - Math.sqrt(5));
-  var atlasIndex = 0;
   var selectedPhotos = selectOrbitPhotos(stories, orbitProfile.maxNodes);
 
   stories.forEach(function (story, storyIndex) {
@@ -251,9 +295,6 @@ function renderOrbit(stories) {
     var tangentY = normalize(cross(center, tangentX));
 
     story.photos.forEach(function (photo, photoIndex) {
-      photo.atlasIndex = atlasIndex;
-      var currentAtlasIndex = atlasIndex;
-      atlasIndex += 1;
       if (selectedPhotos && !selectedPhotos[storyIndex + ':' + photoIndex]) return;
 
       var localAngle = photoIndex * goldenAngle + storyIndex * 0.31;
@@ -269,7 +310,11 @@ function renderOrbit(stories) {
       button.type = 'button';
       button.style.setProperty('--cluster-color', clusterColors[storyIndex % clusterColors.length]);
       button.style.setProperty('--photo-tilt', (((photoIndex * 7 + storyIndex * 3) % 13) - 6) + 'deg');
-      setAtlasPosition(button, currentAtlasIndex);
+      if (photo.atlasIndex == null) {
+        button.style.backgroundImage = 'url("' + photo.thumb.replace(/"/g, '%22') + '")';
+        button.style.backgroundSize = 'cover';
+        button.style.backgroundPosition = 'center';
+      } else setAtlasPosition(button, photo.atlasIndex);
       button.dataset.storyIndex = String(storyIndex);
       button.dataset.photoIndex = String(photoIndex);
       button.setAttribute('aria-label', story.event.date + '，' + story.event.title + '，第' + (photoIndex + 1) + '张照片');
@@ -295,6 +340,12 @@ function renderOrbit(stories) {
   orbitStage.appendChild(fragment);
   orbitEl.dataset.orbitProfile = orbitProfile.name;
   orbitEl.dataset.orbitNodes = String(nodes.length);
+  if (!nodes.length) {
+    orbitDate.textContent = '';
+    orbitTitle.textContent = '还没有照片回忆';
+    orbitCount.textContent = '';
+    return;
+  }
 
   var atlasImage = new Image();
   atlasImage.onload = function () { orbitEl.classList.add('is-ready'); };
@@ -604,13 +655,14 @@ function initMemoryModal(stories) {
     };
     image.src = src;
     image.alt = story.event.title + '，第' + (currentPhoto + 1) + '张照片';
-    image.width = photo.w;
-    image.height = photo.h;
+    if (photo.w && photo.h) { image.width = photo.w; image.height = photo.h; }
+    else { image.removeAttribute('width'); image.removeAttribute('height'); }
   }
   function showPhoto(index) {
     var story = stories[currentStory];
     currentPhoto = (index + story.photos.length) % story.photos.length;
     var photo = story.photos[currentPhoto];
+    if (window.storyGalleryEditor) window.storyGalleryEditor.showPhoto(photo);
     var preview = previewSource(photo);
     originalBtn.hidden = preview === photo.src;
     originalBtn.disabled = false;
@@ -634,7 +686,11 @@ function initMemoryModal(stories) {
       button.type = 'button';
       button.className = 'detail-thumb';
       button.setAttribute('aria-label', '查看第' + (index + 1) + '张照片');
-      setAtlasPosition(button, photo.atlasIndex);
+      if (photo.atlasIndex == null) {
+        button.style.backgroundImage = 'url("' + photo.thumb.replace(/"/g, '%22') + '")';
+        button.style.backgroundSize = 'cover';
+        button.style.backgroundPosition = 'center';
+      } else setAtlasPosition(button, photo.atlasIndex);
       button.addEventListener('click', function () { showPhoto(index); });
       thumbs.appendChild(button);
     });
@@ -644,6 +700,7 @@ function initMemoryModal(stories) {
     currentStory = storyIndex;
     returnFocus = source;
     var story = stories[storyIndex];
+    if (window.storyGalleryEditor) window.storyGalleryEditor.openStory(story);
     date.textContent = story.event.date;
     title.textContent = story.event.title;
     Object.keys(perspectiveStatuses).forEach(function (author) { perspectiveStatuses[author].textContent = ''; });
