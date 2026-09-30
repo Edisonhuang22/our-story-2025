@@ -108,7 +108,16 @@
     syncNote.textContent = signedIn ? '已登录为' + signedIn + '：信件和实体信照片会自动同步给对方。' : '当前信件只保存在本机。登录后可同步给对方。';
     if (syncButton) syncButton.hidden = Boolean(signedIn);
   }
-  function renderList() {
+  function renderList(direction) {
+    var outgoing = list.querySelector('.letter-envelope:not(:disabled)');
+    var animate = direction && outgoing && !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    var outgoingTransform;
+    if (animate) {
+      outgoingTransform = getComputedStyle(outgoing).transform;
+      outgoing = outgoing.cloneNode(true);
+      outgoing.disabled = true;
+      outgoing.setAttribute('aria-hidden', 'true');
+    }
     list.replaceChildren();
     var all = [original].concat(letters).sort(function (a, b) { return b.date.localeCompare(a.date) || b.id.localeCompare(a.id); });
     stackIndex = Math.max(0, Math.min(stackIndex, all.length - 1));
@@ -132,6 +141,21 @@
       button.addEventListener('click', function () { readLetter(letter); });
       list.appendChild(button);
     });
+    if (animate) {
+      var incoming = list.querySelector('.letter-envelope:not(:disabled)');
+      var incomingTransform = getComputedStyle(incoming).transform;
+      outgoing.style.zIndex = all.length + 1;
+      list.appendChild(outgoing);
+      var options = { duration: 380, easing: 'cubic-bezier(.22, .61, .36, 1)' };
+      outgoing.animate([
+        { transform: outgoingTransform, opacity: 1 },
+        { transform: 'translateX(' + (-direction * 90) + 'px) rotateZ(' + (-direction * 8) + 'deg) ' + outgoingTransform, opacity: 0 }
+      ], options).finished.then(function () { outgoing.remove(); });
+      incoming.animate([
+        { transform: 'translateX(' + (direction * 90) + 'px) rotateZ(' + (direction * 6) + 'deg) ' + incomingTransform, opacity: 0 },
+        { transform: incomingTransform, opacity: 1 }
+      ], options);
+    }
     document.getElementById('letter-count').textContent = all.length + ' 封信 · 按写信日期排列';
     document.getElementById('stack-position').textContent = (stackIndex + 1) + ' / ' + all.length;
     document.getElementById('previous-envelope').disabled = stackIndex === 0;
@@ -310,8 +334,8 @@
     status.textContent = '回忆列表暂时未能加载，仍可写信和读信。';
   });
 
-  document.getElementById('previous-envelope').addEventListener('click', function () { stackIndex--; renderList(); });
-  document.getElementById('next-envelope').addEventListener('click', function () { stackIndex++; renderList(); });
+  document.getElementById('previous-envelope').addEventListener('click', function () { stackIndex--; renderList(-1); });
+  document.getElementById('next-envelope').addEventListener('click', function () { stackIndex++; renderList(1); });
 
   function photoStore(mode, action) {
     if (!dbPromise) dbPromise = new Promise(function (resolve, reject) {
