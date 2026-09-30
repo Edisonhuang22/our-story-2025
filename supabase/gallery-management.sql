@@ -9,6 +9,11 @@ create table if not exists public.story_gallery_entries (
   hidden boolean not null default false
 );
 
+-- Keep the stable folder key when the displayed date changes.
+alter table public.story_gallery_entries add column if not exists memory_date date;
+update public.story_gallery_entries
+set memory_date = to_date(folder, 'YYYY.MM.DD') where memory_date is null;
+
 create table if not exists public.story_gallery_photos (
   id uuid primary key default gen_random_uuid(),
   folder text not null check (folder ~ '^20[0-9]{2}[.][0-9]{1,2}[.][0-9]{1,2}$'),
@@ -55,7 +60,9 @@ exception when duplicate_object then null;
 end $$;
 
 revoke all on public.story_gallery_entries, public.story_gallery_photos from anon, authenticated;
-grant select on public.story_gallery_entries, public.story_gallery_photos to anon, authenticated;
+grant select (folder, title, hidden, author, memory_date) on public.story_gallery_entries to anon;
+grant select on public.story_gallery_entries to authenticated;
+grant select on public.story_gallery_photos to anon, authenticated;
 grant insert, update, delete on public.story_gallery_entries, public.story_gallery_photos to authenticated;
 alter table public.story_gallery_entries enable row level security;
 alter table public.story_gallery_photos enable row level security;
@@ -66,30 +73,27 @@ language sql
 stable
 set search_path = public
 as $$
-  select public.is_story_member()
-    and public.story_member_role() = coalesce(
-      (select author from public.story_gallery_entries where folder = p_folder),
-      '大大怪'
-    );
+  select public.is_story_member();
 $$;
 
 drop policy if exists "Anyone reads displayed gallery entries" on public.story_gallery_entries;
 create policy "Anyone reads displayed gallery entries"
-on public.story_gallery_entries for select to anon, authenticated using (true);
+on public.story_gallery_entries for select to anon, authenticated
+using (auth.role() = 'anon' or public.is_story_member());
 drop policy if exists "Story members manage gallery entries" on public.story_gallery_entries;
 drop policy if exists "Story members add gallery entries" on public.story_gallery_entries;
 create policy "Story members add gallery entries"
 on public.story_gallery_entries for insert to authenticated
-with check (author = public.story_member_role());
+with check (public.is_story_member());
 drop policy if exists "Story members edit gallery entries" on public.story_gallery_entries;
 create policy "Story members edit gallery entries"
 on public.story_gallery_entries for update to authenticated
-using (author = public.story_member_role())
-with check (author = public.story_member_role());
+using (public.is_story_member())
+with check (public.is_story_member());
 drop policy if exists "Story members delete gallery entries" on public.story_gallery_entries;
 create policy "Story members delete gallery entries"
 on public.story_gallery_entries for delete to authenticated
-using (author = public.story_member_role());
+using (public.is_story_member());
 
 drop policy if exists "Anyone reads displayed gallery photos" on public.story_gallery_photos;
 create policy "Anyone reads displayed gallery photos"
@@ -138,5 +142,6 @@ on storage.objects for delete to authenticated
 using (
   bucket_id = 'story-gallery'
   and public.is_story_member()
-  and (storage.foldername(name))[1] = auth.uid()::text
 );
+
+-- Original prose is migrated separately and is kept out of the public repository.

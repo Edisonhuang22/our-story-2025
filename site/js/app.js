@@ -127,8 +127,13 @@ Promise.all([
         byFolder[entry.folder] = story;
       }
       story.event.title = entry.title;
-      story.event.text = entry.body;
+      story.event.text = window.storySync.getRole() ? entry.body || '' : '';
       story.event.author = entry.author;
+      story.event.memoryDate = entry.memory_date;
+      if (entry.memory_date) {
+        var dateParts = entry.memory_date.split('-');
+        story.event.date = dateParts[0] + '年' + Number(dateParts[1]) + '月' + Number(dateParts[2]) + '日';
+      }
       story.hidden = entry.hidden;
     });
     gallery.photos.forEach(function (row) {
@@ -146,14 +151,32 @@ Promise.all([
   }
   stories = stories.filter(function (story) { return !story.hidden && story.photos.length; });
   stories.sort(function (a, b) {
-    var left = a.event.folder.split('.').map(Number);
-    var right = b.event.folder.split('.').map(Number);
+    var left = (a.event.memoryDate || a.event.folder).split(/[-.]/).map(Number);
+    var right = (b.event.memoryDate || b.event.folder).split(/[-.]/).map(Number);
     return left[0] - right[0] || left[1] - right[1] || left[2] - right[2];
   });
   renderOrbit(stories);
   initMemoryModal(stories);
   initMemoryViews(stories);
   if (!gallery.error) window.initGalleryEditor(stories, gallery, baseFolders);
+  var textLoadId = 0;
+  window.storySync.onAuthChange(async function () {
+    var requestId = ++textLoadId;
+    stories.forEach(function (story) { story.event.text = ''; });
+    gallery.entries && gallery.entries.forEach(function (entry) { delete entry.body; });
+    window.dispatchEvent(new Event('story-gallery-text-change'));
+    if (!window.storySync.getRole()) return;
+    try {
+      var refreshed = await window.storySync.loadGallery();
+      if (requestId !== textLoadId || !window.storySync.getRole()) return;
+      stories.forEach(function (story) {
+        var entry = refreshed.entries.find(function (item) { return item.folder === story.event.folder; });
+        story.event.text = entry ? entry.body || '' : '';
+      });
+      gallery.entries = refreshed.entries;
+      window.dispatchEvent(new Event('story-gallery-text-change'));
+    } catch (error) { galleryError.textContent = '回忆文字读取失败，请刷新重试。'; }
+  });
   var linkedMemory = new URLSearchParams(location.search).get('memory');
   var linkedIndex = stories.findIndex(function (story) { return story.event.folder === linkedMemory; });
   if (linkedIndex >= 0) {
@@ -179,7 +202,7 @@ function initMemoryViews(stories) {
   var summary = document.getElementById('gallery-summary');
   var months = [];
 
-  function monthOf(story) { return story.event.folder.split('.').slice(0, 2).join('.'); }
+  function monthOf(story) { return (story.event.memoryDate || story.event.folder).split(/[-.]/).slice(0, 2).map(Number).join('.'); }
   function monthLabel(month) { var parts = month.split('.'); return parts[0] + ' 年 ' + parts[1] + ' 月'; }
   function makeText(tag, className, text) {
     var el = document.createElement(tag);
@@ -205,7 +228,7 @@ function initMemoryViews(stories) {
     var copy = makeText('span', 'memory-card-copy', '');
     copy.appendChild(makeText('span', 'memory-card-date', story.event.date));
     copy.appendChild(makeText('strong', '', story.event.title));
-    copy.appendChild(makeText('span', 'memory-card-excerpt', story.event.text));
+    copy.appendChild(makeText('span', 'memory-card-excerpt', window.storySync.getRole() ? story.event.text : '登录后查看回忆文字'));
     var meta = makeText('span', 'memory-card-meta', '');
     meta.appendChild(makeText('span', '', story.photos.length + ' 张照片'));
     meta.appendChild(makeText('span', '', '打开回忆 ↗'));
@@ -263,6 +286,7 @@ function initMemoryViews(stories) {
     updateSummary();
   });
   setView(memoryVisit.view === 'timeline' ? 'timeline' : 'orbit');
+  window.addEventListener('story-gallery-text-change', renderTimeline);
 }
 
 function normalize(v) {
@@ -567,11 +591,14 @@ function initMemoryModal(stories) {
   function renderPerspectives() {
     var role = window.storySync && window.storySync.getRole();
     ['大大怪', '小小怪'].forEach(function (author) {
-      var body = Object.prototype.hasOwnProperty.call(perspectiveRows, author) ? perspectiveRows[author] : defaultPerspective(author);
-      perspectiveDisplays[author].textContent = body || '还没有写下这一段回忆。';
-      perspectiveDisplays[author].hidden = role === author;
+      var body = '';
+      if (role) body = Object.prototype.hasOwnProperty.call(perspectiveRows, author) ? perspectiveRows[author] : defaultPerspective(author);
+      perspectiveDisplays[author].textContent = role ? body || '还没有写下这一段回忆。' : '';
+      perspectiveDisplays[author].hidden = !role || role === author;
       perspectiveForms[author].hidden = role !== author;
-      if (role === author) perspectiveTexts[author].value = body;
+      perspectiveTexts[author].value = role === author ? body : '';
+      document.getElementById(author === '大大怪' ? 'big-perspective-label' : 'little-perspective-label').hidden = !role || role === author;
+      document.getElementById(author === '大大怪' ? 'big-perspective-block' : 'little-perspective-block').hidden = !role;
     });
     perspectiveLogin.hidden = Boolean(role);
   }
@@ -621,6 +648,7 @@ function initMemoryModal(stories) {
   });
   perspectiveLoginButton.addEventListener('click', function () { window.storySync.openAuth(); });
   window.storySync.onAuthChange(function () { renderPerspectives(); loadPerspectives(); });
+  window.addEventListener('story-gallery-text-change', renderPerspectives);
   window.storySync.onPerspectiveChange(function (payload) {
     if (payload.new && payload.new.folder === stories[currentStory].event.folder) loadPerspectives();
   });

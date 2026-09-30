@@ -14,6 +14,7 @@
   var listeners = [];
   var perspectiveChannel = null;
   var mailboxChannel = null;
+  var ready = client.auth.getSession().then(function (result) { setUser(result.data.session && result.data.session.user); });
   var button = document.createElement('button');
   var dialog = document.createElement('dialog');
 
@@ -110,8 +111,10 @@
   }
 
   async function loadGallery() {
+    await ready;
+    var columns = 'folder,title,hidden,author,memory_date' + (currentRole ? ',body' : '');
     var results = await Promise.all([
-      client.from('story_gallery_entries').select('folder,title,body,hidden,author'),
+      client.from('story_gallery_entries').select(columns),
       client.from('story_gallery_photos').select('id,folder,static_src,storage_path,hidden,created_at').order('created_at', { ascending: true })
     ]);
     if (results[0].error) throw new Error('回忆记录 HTTP ' + results[0].status + '：' + results[0].error.message);
@@ -229,7 +232,6 @@
   }
 
   client.auth.onAuthStateChange(function (_event, session) { setUser(session && session.user); });
-  client.auth.getSession().then(function (result) { setUser(result.data.session && result.data.session.user); });
 
   window.storySync = {
     getRole: function () { return currentRole; },

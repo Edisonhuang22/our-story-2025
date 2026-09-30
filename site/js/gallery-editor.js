@@ -36,13 +36,14 @@ window.initGalleryEditor = function (stories, gallery, baseFolders) {
   function fail(error) {
     status.textContent = '保存失败：' + (error.message || String(error));
   }
-  function ownsStory(story) {
-    return story && sync.getRole() === (story.event.author || '大大怪');
+  function canEditStory(story) {
+    return story && Boolean(sync.getRole());
   }
   function updateButtons() {
-    var canEdit = ownsStory(activeStory);
+    var canEdit = canEditStory(activeStory);
     manageActions.hidden = !canEdit;
     removePhotoButton.hidden = !canEdit || !activePhoto;
+    if (!sync.getRole()) { dialog.close(); form.reset(); }
   }
   function makeRestoreButton(label, callback) {
     var button = document.createElement('button');
@@ -77,7 +78,7 @@ window.initGalleryEditor = function (stories, gallery, baseFolders) {
   function showHiddenEntries() {
     hiddenEntries.replaceChildren();
     var rows = gallery.entries.filter(function (entry) {
-      return entry.author === sync.getRole() &&
+      return Boolean(sync.getRole()) &&
         (entry.hidden || !stories.some(function (story) { return story.event.folder === entry.folder; }));
     });
     hiddenEntries.hidden = !rows.length;
@@ -97,7 +98,7 @@ window.initGalleryEditor = function (stories, gallery, baseFolders) {
         button.type = 'button';
         button.textContent = '继续添加照片 ' + entry.folder + ' · ' + entry.title;
         button.addEventListener('click', function () {
-          openEditor({ event: { folder: entry.folder, title: entry.title, text: entry.body, author: entry.author }, photos: [] });
+          openEditor({ event: { folder: entry.folder, title: entry.title, text: entry.body, author: entry.author, memoryDate: entry.memory_date }, photos: [] });
         });
         hiddenEntries.appendChild(button);
       }
@@ -105,13 +106,13 @@ window.initGalleryEditor = function (stories, gallery, baseFolders) {
   }
   function openEditor(story) {
     if (!sync.getRole()) { sync.openAuth(); return; }
-    if (story && !ownsStory(story)) return;
+    if (story && !canEditStory(story)) return;
     editingStory = story || null;
     form.reset();
     status.textContent = '';
     title.textContent = story ? '编辑回忆' : '添加回忆';
-    dateInput.disabled = Boolean(story);
-    dateInput.value = story ? dateFromFolder(story.event.folder) : new Date().toLocaleDateString('sv-SE');
+    dateInput.disabled = false;
+    dateInput.value = story ? story.event.memoryDate || dateFromFolder(story.event.folder) : new Date().toLocaleDateString('sv-SE');
     nameInput.value = story ? story.event.title : '';
     bodyInput.value = story ? story.event.text : '';
     fileHint.textContent = story
@@ -135,7 +136,7 @@ window.initGalleryEditor = function (stories, gallery, baseFolders) {
 
   form.addEventListener('submit', async function (event) {
     event.preventDefault();
-    if (busy || !sync.getRole() || (editingStory && !ownsStory(editingStory))) return;
+    if (busy || !sync.getRole() || (editingStory && !canEditStory(editingStory))) return;
     var files = Array.from(filesInput.files);
     if (!editingStory && !files.length) { status.textContent = '请先选择至少一张照片。'; return; }
     if (files.some(function (file) { return !['image/jpeg', 'image/png', 'image/webp'].includes(file.type) || file.size > 10485760; })) {
@@ -147,7 +148,7 @@ window.initGalleryEditor = function (stories, gallery, baseFolders) {
       status.textContent = '这一天已有回忆。请打开对应回忆编辑，或先恢复已移出的回忆。';
       return;
     }
-    var entry = { folder: folder, title: nameInput.value.trim(), body: bodyInput.value.trim(), hidden: false,
+    var entry = { folder: folder, memory_date: dateInput.value, title: nameInput.value.trim(), body: bodyInput.value.trim(), hidden: false,
       author: editingStory ? (editingStory.event.author || '大大怪') : sync.getRole() };
     if (!entry.title) { status.textContent = '请填写标题。'; return; }
     busy = true;
@@ -176,7 +177,7 @@ window.initGalleryEditor = function (stories, gallery, baseFolders) {
   });
 
   removePhotoButton.addEventListener('click', async function () {
-    if (!ownsStory(activeStory) || !activePhoto || busy) return;
+    if (!canEditStory(activeStory) || !activePhoto || busy) return;
     var story = activeStory;
     var photo = activePhoto;
     if (story.photos.length === 1) { alert('这是最后一张照片。请先添加新照片，或移除整段回忆。'); return; }
@@ -195,7 +196,7 @@ window.initGalleryEditor = function (stories, gallery, baseFolders) {
   });
 
   removeMemoryButton.addEventListener('click', async function () {
-    if (!ownsStory(activeStory) || busy) return;
+    if (!canEditStory(activeStory) || busy) return;
     if (!confirm('确定将整段回忆移出展示？之后可以从“添加回忆”里恢复。')) return;
     busy = true;
     removeMemoryButton.disabled = true;
