@@ -5,6 +5,7 @@ create table if not exists public.story_gallery_entries (
   folder text primary key check (folder ~ '^20[0-9]{2}[.][0-9]{1,2}[.][0-9]{1,2}$'),
   title text not null check (char_length(title) between 1 and 80),
   body text not null default '' check (char_length(body) <= 2000),
+  author text not null default '大大怪' check (author in ('大大怪', '小小怪')),
   hidden boolean not null default false
 );
 
@@ -18,6 +19,40 @@ create table if not exists public.story_gallery_photos (
   unique (folder, static_src),
   check ((static_src is null) <> (storage_path is null))
 );
+
+-- Existing online entries predate author tracking. For dates absent from the
+-- original static gallery, the first uploaded photo identifies the creator.
+-- Original dates retain 大大怪 attribution even if 小小怪 later added photos.
+alter table public.story_gallery_entries add column if not exists author text;
+update public.story_gallery_entries as entry
+set author = case lower(u.email)
+  when '1014779580@qq.com' then '小小怪'
+  else '大大怪'
+end
+from (
+  select distinct on (folder) folder, split_part(storage_path, '/', 1) as uploader_id
+  from public.story_gallery_photos
+  where storage_path is not null
+  order by folder, created_at, id
+) as first_photo
+join auth.users as u on u.id::text = first_photo.uploader_id
+where entry.folder = first_photo.folder and entry.author is null
+  and entry.folder not in (
+    '2025.11.19', '2025.12.1', '2025.12.4', '2025.12.6', '2025.12.12',
+    '2025.12.13', '2025.12.16', '2025.12.21', '2025.12.22', '2025.12.24',
+    '2025.12.25', '2025.12.28', '2025.12.30', '2025.12.31', '2026.1.6',
+    '2026.1.7', '2026.1.11', '2026.1.12', '2026.1.17', '2026.1.25',
+    '2026.3.3', '2026.3.4', '2026.3.21', '2026.3.24', '2026.4.3',
+    '2026.4.6', '2026.4.19', '2026.4.21', '2026.5.1'
+  );
+update public.story_gallery_entries set author = '大大怪' where author is null;
+alter table public.story_gallery_entries alter column author set default '大大怪';
+alter table public.story_gallery_entries alter column author set not null;
+do $$ begin
+  alter table public.story_gallery_entries add constraint story_gallery_entries_author_check
+    check (author in ('大大怪', '小小怪'));
+exception when duplicate_object then null;
+end $$;
 
 revoke all on public.story_gallery_entries, public.story_gallery_photos from anon, authenticated;
 grant select on public.story_gallery_entries, public.story_gallery_photos to anon, authenticated;

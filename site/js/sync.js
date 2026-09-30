@@ -111,7 +111,7 @@
 
   async function loadGallery() {
     var results = await Promise.all([
-      client.from('story_gallery_entries').select('folder,title,body,hidden'),
+      client.from('story_gallery_entries').select('folder,title,body,hidden,author'),
       client.from('story_gallery_photos').select('id,folder,static_src,storage_path,hidden,created_at').order('created_at', { ascending: true })
     ]);
     if (results[0].error) throw results[0].error;

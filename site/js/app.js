@@ -128,6 +128,7 @@ Promise.all([
       }
       story.event.title = entry.title;
       story.event.text = entry.body;
+      story.event.author = entry.author;
       story.hidden = entry.hidden;
     });
     gallery.photos.forEach(function (row) {
@@ -560,7 +561,8 @@ function initMemoryModal(stories) {
   var background = document.querySelectorAll('body > header, body > main, body > .egg-footer');
 
   function defaultPerspective(author) {
-    return author === '大大怪' ? stories[currentStory].event.text : '';
+    var story = stories[currentStory];
+    return author === (story.event.author || '大大怪') ? story.event.text : '';
   }
   function renderPerspectives() {
     var role = window.storySync && window.storySync.getRole();

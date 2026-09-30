@@ -85,7 +85,7 @@ window.initGalleryEditor = function (stories, gallery, baseFolders) {
       if (entry.hidden) {
         hiddenEntries.appendChild(makeRestoreButton(
           '恢复 ' + entry.folder + ' · ' + entry.title,
-          function () { return sync.saveGalleryEntry({ folder: entry.folder, title: entry.title, body: entry.body, hidden: false }); }
+          function () { return sync.saveGalleryEntry({ folder: entry.folder, title: entry.title, body: entry.body, hidden: false, author: entry.author }); }
         ));
       } else {
         var button = document.createElement('button');
@@ -93,7 +93,7 @@ window.initGalleryEditor = function (stories, gallery, baseFolders) {
         button.type = 'button';
         button.textContent = '继续添加照片 ' + entry.folder + ' · ' + entry.title;
         button.addEventListener('click', function () {
-          openEditor({ event: { folder: entry.folder, title: entry.title, text: entry.body }, photos: [] });
+          openEditor({ event: { folder: entry.folder, title: entry.title, text: entry.body, author: entry.author }, photos: [] });
         });
         hiddenEntries.appendChild(button);
       }
@@ -142,7 +142,8 @@ window.initGalleryEditor = function (stories, gallery, baseFolders) {
       status.textContent = '这一天已有回忆。请打开对应回忆编辑，或先恢复已移出的回忆。';
       return;
     }
-    var entry = { folder: folder, title: nameInput.value.trim(), body: bodyInput.value.trim(), hidden: false };
+    var entry = { folder: folder, title: nameInput.value.trim(), body: bodyInput.value.trim(), hidden: false,
+      author: editingStory ? (editingStory.event.author || '大大怪') : sync.getRole() };
     if (!entry.title) { status.textContent = '请填写标题。'; return; }
     busy = true;
     submitButton.disabled = true;
@@ -198,6 +199,7 @@ window.initGalleryEditor = function (stories, gallery, baseFolders) {
         folder: activeStory.event.folder,
         title: activeStory.event.title,
         body: activeStory.event.text,
+        author: activeStory.event.author || '大大怪',
         hidden: true
       });
       location.reload();
