@@ -60,6 +60,19 @@ grant insert, update, delete on public.story_gallery_entries, public.story_galle
 alter table public.story_gallery_entries enable row level security;
 alter table public.story_gallery_photos enable row level security;
 
+create or replace function public.can_edit_gallery_folder(p_folder text)
+returns boolean
+language sql
+stable
+set search_path = public
+as $$
+  select public.is_story_member()
+    and public.story_member_role() = coalesce(
+      (select author from public.story_gallery_entries where folder = p_folder),
+      '大大怪'
+    );
+$$;
+
 drop policy if exists "Anyone reads displayed gallery entries" on public.story_gallery_entries;
 create policy "Anyone reads displayed gallery entries"
 on public.story_gallery_entries for select to anon, authenticated using (true);
@@ -67,15 +80,16 @@ drop policy if exists "Story members manage gallery entries" on public.story_gal
 drop policy if exists "Story members add gallery entries" on public.story_gallery_entries;
 create policy "Story members add gallery entries"
 on public.story_gallery_entries for insert to authenticated
-with check (public.is_story_member());
+with check (author = public.story_member_role());
 drop policy if exists "Story members edit gallery entries" on public.story_gallery_entries;
 create policy "Story members edit gallery entries"
 on public.story_gallery_entries for update to authenticated
-using (public.is_story_member()) with check (public.is_story_member());
+using (author = public.story_member_role())
+with check (author = public.story_member_role());
 drop policy if exists "Story members delete gallery entries" on public.story_gallery_entries;
 create policy "Story members delete gallery entries"
 on public.story_gallery_entries for delete to authenticated
-using (public.is_story_member());
+using (author = public.story_member_role());
 
 drop policy if exists "Anyone reads displayed gallery photos" on public.story_gallery_photos;
 create policy "Anyone reads displayed gallery photos"
@@ -84,15 +98,16 @@ drop policy if exists "Story members manage gallery photos" on public.story_gall
 drop policy if exists "Story members add gallery photos" on public.story_gallery_photos;
 create policy "Story members add gallery photos"
 on public.story_gallery_photos for insert to authenticated
-with check (public.is_story_member());
+with check (public.can_edit_gallery_folder(folder));
 drop policy if exists "Story members edit gallery photos" on public.story_gallery_photos;
 create policy "Story members edit gallery photos"
 on public.story_gallery_photos for update to authenticated
-using (public.is_story_member()) with check (public.is_story_member());
+using (public.can_edit_gallery_folder(folder))
+with check (public.can_edit_gallery_folder(folder));
 drop policy if exists "Story members delete gallery photos" on public.story_gallery_photos;
 create policy "Story members delete gallery photos"
 on public.story_gallery_photos for delete to authenticated
-using (public.is_story_member());
+using (public.can_edit_gallery_folder(folder));
 
 -- The current static photos are already public on GitHub Pages. Uploaded
 -- gallery photos use the same viewing model; only the two members can write.
@@ -120,4 +135,8 @@ with check (
 drop policy if exists "Story members delete gallery files" on storage.objects;
 create policy "Story members delete gallery files"
 on storage.objects for delete to authenticated
-using (bucket_id = 'story-gallery' and public.is_story_member());
+using (
+  bucket_id = 'story-gallery'
+  and public.is_story_member()
+  and (storage.foldername(name))[1] = auth.uid()::text
+);

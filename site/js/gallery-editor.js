@@ -36,10 +36,13 @@ window.initGalleryEditor = function (stories, gallery, baseFolders) {
   function fail(error) {
     status.textContent = '保存失败：' + (error.message || String(error));
   }
+  function ownsStory(story) {
+    return story && sync.getRole() === (story.event.author || '大大怪');
+  }
   function updateButtons() {
-    var signedIn = Boolean(sync.getRole());
-    manageActions.hidden = !signedIn || !activeStory;
-    removePhotoButton.hidden = !signedIn || !activePhoto;
+    var canEdit = ownsStory(activeStory);
+    manageActions.hidden = !canEdit;
+    removePhotoButton.hidden = !canEdit || !activePhoto;
   }
   function makeRestoreButton(label, callback) {
     var button = document.createElement('button');
@@ -74,7 +77,8 @@ window.initGalleryEditor = function (stories, gallery, baseFolders) {
   function showHiddenEntries() {
     hiddenEntries.replaceChildren();
     var rows = gallery.entries.filter(function (entry) {
-      return entry.hidden || !stories.some(function (story) { return story.event.folder === entry.folder; });
+      return entry.author === sync.getRole() &&
+        (entry.hidden || !stories.some(function (story) { return story.event.folder === entry.folder; }));
     });
     hiddenEntries.hidden = !rows.length;
     if (!rows.length) return;
@@ -101,6 +105,7 @@ window.initGalleryEditor = function (stories, gallery, baseFolders) {
   }
   function openEditor(story) {
     if (!sync.getRole()) { sync.openAuth(); return; }
+    if (story && !ownsStory(story)) return;
     editingStory = story || null;
     form.reset();
     status.textContent = '';
@@ -130,7 +135,7 @@ window.initGalleryEditor = function (stories, gallery, baseFolders) {
 
   form.addEventListener('submit', async function (event) {
     event.preventDefault();
-    if (busy || !sync.getRole()) return;
+    if (busy || !sync.getRole() || (editingStory && !ownsStory(editingStory))) return;
     var files = Array.from(filesInput.files);
     if (!editingStory && !files.length) { status.textContent = '请先选择至少一张照片。'; return; }
     if (files.some(function (file) { return !['image/jpeg', 'image/png', 'image/webp'].includes(file.type) || file.size > 10485760; })) {
@@ -171,7 +176,7 @@ window.initGalleryEditor = function (stories, gallery, baseFolders) {
   });
 
   removePhotoButton.addEventListener('click', async function () {
-    if (!activeStory || !activePhoto || busy || !sync.getRole()) return;
+    if (!ownsStory(activeStory) || !activePhoto || busy) return;
     var story = activeStory;
     var photo = activePhoto;
     if (story.photos.length === 1) { alert('这是最后一张照片。请先添加新照片，或移除整段回忆。'); return; }
@@ -190,7 +195,7 @@ window.initGalleryEditor = function (stories, gallery, baseFolders) {
   });
 
   removeMemoryButton.addEventListener('click', async function () {
-    if (!activeStory || busy || !sync.getRole()) return;
+    if (!ownsStory(activeStory) || busy) return;
     if (!confirm('确定将整段回忆移出展示？之后可以从“添加回忆”里恢复。')) return;
     busy = true;
     removeMemoryButton.disabled = true;
