@@ -3,6 +3,14 @@
 /* ---------- Hero 载入淡入 ---------- */
 document.body.classList.add('loaded');
 
+document.querySelector('.pill-btn[href="#photos"]').addEventListener('click', function (event) {
+  event.preventDefault();
+  document.getElementById('photos').scrollIntoView({
+    behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth',
+    block: 'start'
+  });
+});
+
 /* ---------- 固定合照的轻微倾斜 ---------- */
 (function initHeroPortraitTilt() {
   var hero = document.querySelector('.hero');
