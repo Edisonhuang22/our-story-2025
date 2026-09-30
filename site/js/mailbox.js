@@ -127,6 +127,7 @@
       button.appendChild(date);
       button.appendChild(node('strong', '', letter.title));
       button.appendChild(node('span', 'letter-address', letter.sender + ' 写给 ' + recipient(letter)));
+      if (letter.localOnly) button.appendChild(node('span', '', '仅保存在本机，等待写信人登录同步'));
       button.appendChild(node('span', 'letter-open', '拆开这封信 →'));
       button.addEventListener('click', function () { readLetter(letter); });
       list.appendChild(button);
@@ -473,6 +474,10 @@
     letters = data.letters.map(function (letter) {
       return Object.assign({}, letter, { photos: photosByLetter[letter.id] || [] });
     });
+    var remoteIds = new Set(letters.map(function (letter) { return letter.id; }));
+    letters = letters.concat(localLetters.filter(function (letter) { return !remoteIds.has(letter.id); }).map(function (letter) {
+      return Object.assign(cloneLetter(letter), { localOnly: true });
+    }));
     original.photos = (photosByLetter[originalId] || []).concat(localOriginalPhotos);
   }
   async function migrateLocalMailbox(data) {
@@ -500,16 +505,20 @@
     status.textContent = '正在读取双方信箱…';
     try {
       var data = await storySync().loadMailbox();
+      if (requestId !== cloudLoadId || !syncing()) return;
+      applyCloudMailbox(data);
+      renderList();
       var migration = migrate ? await migrateLocalMailbox(data) : { letters: 0, originalPhotos: false };
       if (migration.letters || migration.originalPhotos) data = await storySync().loadMailbox();
       if (requestId !== cloudLoadId || !syncing()) return;
       applyCloudMailbox(data);
       renderList();
       status.textContent = migration.letters ? '已同步并迁移 ' + migration.letters + ' 封本机信件。' : '双方信箱已同步。';
+      if (letters.some(function (letter) { return letter.localOnly; })) status.textContent += ' 还有本机信件，待写信人登录后同步。';
     } catch (e) {
       if (requestId === cloudLoadId) {
         if (migrate) migrationRole = null;
-        status.textContent = '信箱同步暂不可用，请确认数据库脚本已运行后重试。';
+        status.textContent = '信箱同步暂不可用，本机信件仍保留，请刷新重试。';
       }
     }
   }
@@ -520,8 +529,11 @@
       fields.sender.value = role();
       if (migrationRole === role()) return;
       migrationRole = role();
+      loadLocalMailbox();
+      renderList();
       loadCloudMailbox(true);
     } else {
+      cloudLoadId++;
       migrationRole = null;
       loadLocalMailbox();
       renderList();

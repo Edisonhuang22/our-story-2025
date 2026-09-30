@@ -251,6 +251,6 @@
     removeLetterPhoto: removeLetterPhoto,
     downloadLetterPhoto: downloadLetterPhoto,
     onMailboxChange: onMailboxChange,
-    onAuthChange: function (listener) { listeners.push(listener); }
+    onAuthChange: function (listener) { listeners.push(listener); listener(currentUser, currentRole); }
   };
 })();
