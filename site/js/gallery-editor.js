@@ -114,6 +114,7 @@ window.initGalleryEditor = function (stories, gallery, baseFolders) {
     dateInput.disabled = false;
     dateInput.value = story ? story.event.memoryDate || dateFromFolder(story.event.folder) : new Date().toLocaleDateString('sv-SE');
     nameInput.value = story ? story.event.title : '';
+    bodyInput.closest('label').hidden = Boolean(story);
     bodyInput.value = story ? story.event.text : '';
     fileHint.textContent = story
       ? '可以添加照片，也可以只修改文字。支持 JPG、PNG、WebP，每张不超过 10 MB。'
@@ -148,7 +149,7 @@ window.initGalleryEditor = function (stories, gallery, baseFolders) {
       status.textContent = '这一天已有回忆。请打开对应回忆编辑，或先恢复已移出的回忆。';
       return;
     }
-    var entry = { folder: folder, memory_date: dateInput.value, title: nameInput.value.trim(), body: bodyInput.value.trim(), hidden: false,
+    var entry = { folder: folder, memory_date: dateInput.value, title: nameInput.value.trim(), body: editingStory ? editingStory.event.text : bodyInput.value.trim(), hidden: false,
       author: editingStory ? (editingStory.event.author || '大大怪') : sync.getRole() };
     if (!entry.title) { status.textContent = '请填写标题。'; return; }
     busy = true;
