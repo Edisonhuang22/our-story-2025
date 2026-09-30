@@ -9,8 +9,8 @@ security definer
 set search_path = public
 as $$
   select case lower(coalesce(auth.jwt() ->> 'email', ''))
-    when '484784621@qq.com' then '大大怪'
-    when '1014779580@qq.com' then '小小怪'
+    when '484784621@qq.com' then '大大布'
+    when '1014779580@qq.com' then '小小二'
     else null
   end;
 $$;
@@ -27,7 +27,7 @@ $$;
 
 create table if not exists public.memory_perspectives (
   folder text not null check (folder ~ '^20[0-9]{2}[.][0-9]{1,2}[.][0-9]{1,2}$'),
-  author text not null check (author in ('大大怪', '小小怪')),
+  author text not null check (author in ('大大布', '小小二')),
   author_id uuid not null default auth.uid() references auth.users(id) on delete cascade,
   body text not null default '' check (char_length(body) <= 2000),
   updated_at timestamptz not null default now(),
@@ -88,7 +88,7 @@ end $$;
 -- paper-letter photos can also be synchronized without duplicating its text.
 create table if not exists public.story_letters (
   id uuid primary key,
-  sender text not null check (sender in ('大大怪', '小小怪')),
+  sender text not null check (sender in ('大大布', '小小二')),
   author_id uuid references auth.users(id) on delete cascade,
   date date not null,
   title text not null check (char_length(title) between 1 and 80),
@@ -101,7 +101,7 @@ create table if not exists public.story_letters (
 );
 
 insert into public.story_letters (id, sender, date, title, body, is_original)
-values ('00000000-0000-0000-0000-000000000001', '大大怪', '2026-08-19', '小作文', '', true)
+values ('00000000-0000-0000-0000-000000000001', '大大布', '2026-08-19', '小作文', '', true)
 on conflict (id) do nothing;
 
 create or replace function public.set_story_letter_updated_at()
@@ -123,7 +123,7 @@ for each row execute function public.set_story_letter_updated_at();
 create table if not exists public.story_letter_photos (
   id uuid primary key,
   letter_id uuid not null references public.story_letters(id) on delete cascade,
-  author text not null check (author in ('大大怪', '小小怪')),
+  author text not null check (author in ('大大布', '小小二')),
   author_id uuid not null default auth.uid() references auth.users(id) on delete cascade,
   name text not null check (char_length(name) between 1 and 255),
   storage_path text not null unique,

@@ -150,7 +150,7 @@ window.initGalleryEditor = function (stories, gallery, baseFolders) {
       return;
     }
     var entry = { folder: folder, memory_date: dateInput.value, title: nameInput.value.trim(), body: editingStory ? editingStory.event.text : bodyInput.value.trim(), hidden: false,
-      author: editingStory ? (editingStory.event.author || '大大怪') : sync.getRole() };
+      author: editingStory ? (editingStory.event.author || '大大布') : sync.getRole() };
     if (!entry.title) { status.textContent = '请填写标题。'; return; }
     busy = true;
     submitButton.disabled = true;
@@ -206,7 +206,7 @@ window.initGalleryEditor = function (stories, gallery, baseFolders) {
         folder: activeStory.event.folder,
         title: activeStory.event.title,
         body: activeStory.event.text,
-        author: activeStory.event.author || '大大怪',
+        author: activeStory.event.author || '大大布',
         hidden: true
       });
       location.reload();

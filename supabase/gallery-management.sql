@@ -5,7 +5,7 @@ create table if not exists public.story_gallery_entries (
   folder text primary key check (folder ~ '^20[0-9]{2}[.][0-9]{1,2}[.][0-9]{1,2}$'),
   title text not null check (char_length(title) between 1 and 80),
   body text not null default '' check (char_length(body) <= 2000),
-  author text not null default '大大怪' check (author in ('大大怪', '小小怪')),
+  author text not null default '大大布' check (author in ('大大布', '小小二')),
   hidden boolean not null default false
 );
 
@@ -27,12 +27,12 @@ create table if not exists public.story_gallery_photos (
 
 -- Existing online entries predate author tracking. For dates absent from the
 -- original static gallery, the first uploaded photo identifies the creator.
--- Original dates retain 大大怪 attribution even if 小小怪 later added photos.
+-- Original dates retain 大大布 attribution even if 小小二 later added photos.
 alter table public.story_gallery_entries add column if not exists author text;
 update public.story_gallery_entries as entry
 set author = case lower(u.email)
-  when '1014779580@qq.com' then '小小怪'
-  else '大大怪'
+  when '1014779580@qq.com' then '小小二'
+  else '大大布'
 end
 from (
   select distinct on (folder) folder, split_part(storage_path, '/', 1) as uploader_id
@@ -50,12 +50,12 @@ where entry.folder = first_photo.folder and entry.author is null
     '2026.3.3', '2026.3.4', '2026.3.21', '2026.3.24', '2026.4.3',
     '2026.4.6', '2026.4.19', '2026.4.21', '2026.5.1'
   );
-update public.story_gallery_entries set author = '大大怪' where author is null;
-alter table public.story_gallery_entries alter column author set default '大大怪';
+update public.story_gallery_entries set author = '大大布' where author is null;
+alter table public.story_gallery_entries alter column author set default '大大布';
 alter table public.story_gallery_entries alter column author set not null;
 do $$ begin
   alter table public.story_gallery_entries add constraint story_gallery_entries_author_check
-    check (author in ('大大怪', '小小怪'));
+    check (author in ('大大布', '小小二'));
 exception when duplicate_object then null;
 end $$;
 

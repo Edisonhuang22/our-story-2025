@@ -571,20 +571,20 @@ function initMemoryModal(stories) {
   var photoRequestId = 0;
   var previewRequests = Object.create(null);
   var perspectiveForms = {
-    '大大怪': document.getElementById('big-perspective-form'),
-    '小小怪': document.getElementById('little-perspective-form')
+    '大大布': document.getElementById('big-perspective-form'),
+    '小小二': document.getElementById('little-perspective-form')
   };
   var perspectiveTexts = {
-    '大大怪': document.getElementById('big-perspective-text'),
-    '小小怪': document.getElementById('little-perspective-text')
+    '大大布': document.getElementById('big-perspective-text'),
+    '小小二': document.getElementById('little-perspective-text')
   };
   var perspectiveDisplays = {
-    '大大怪': document.getElementById('big-perspective-display'),
-    '小小怪': document.getElementById('little-perspective-display')
+    '大大布': document.getElementById('big-perspective-display'),
+    '小小二': document.getElementById('little-perspective-display')
   };
   var perspectiveStatuses = {
-    '大大怪': document.getElementById('big-perspective-status'),
-    '小小怪': document.getElementById('little-perspective-status')
+    '大大布': document.getElementById('big-perspective-status'),
+    '小小二': document.getElementById('little-perspective-status')
   };
   var perspectiveLogin = document.getElementById('perspective-login');
   var perspectiveLoginButton = document.getElementById('perspective-login-button');
@@ -594,19 +594,19 @@ function initMemoryModal(stories) {
 
   function defaultPerspective(author) {
     var story = stories[currentStory];
-    return author === (story.event.author || '大大怪') ? story.event.text : '';
+    return author === (story.event.author || '大大布') ? story.event.text : '';
   }
   function renderPerspectives() {
     var role = window.storySync && window.storySync.getRole();
-    ['大大怪', '小小怪'].forEach(function (author) {
+    ['大大布', '小小二'].forEach(function (author) {
       var body = '';
       if (role) body = Object.prototype.hasOwnProperty.call(perspectiveRows, author) ? perspectiveRows[author] : defaultPerspective(author);
       perspectiveDisplays[author].textContent = role ? body || '还没有写下这一段回忆。' : '';
       perspectiveDisplays[author].hidden = !role || role === author;
       perspectiveForms[author].hidden = role !== author;
       perspectiveTexts[author].value = role === author ? body : '';
-      document.getElementById(author === '大大怪' ? 'big-perspective-label' : 'little-perspective-label').hidden = !role || role === author;
-      document.getElementById(author === '大大怪' ? 'big-perspective-block' : 'little-perspective-block').hidden = !role;
+      document.getElementById(author === '大大布' ? 'big-perspective-label' : 'little-perspective-label').hidden = !role || role === author;
+      document.getElementById(author === '大大布' ? 'big-perspective-block' : 'little-perspective-block').hidden = !role;
     });
     perspectiveLogin.hidden = Boolean(role);
   }
@@ -620,12 +620,12 @@ function initMemoryModal(stories) {
       var rows = await window.storySync.load(folder);
       if (requestId !== perspectiveLoadId || folder !== stories[currentStory].event.folder) return;
       rows.forEach(function (row) { perspectiveRows[row.author] = row.body; });
-      if (!Object.prototype.hasOwnProperty.call(perspectiveRows, '小小怪')) {
+      if (!Object.prototype.hasOwnProperty.call(perspectiveRows, '小小二')) {
         try {
           var legacyLittle = localStorage.getItem('story-perspective:' + folder);
-          if (legacyLittle && window.storySync.getRole() === '小小怪') {
-            perspectiveRows['小小怪'] = legacyLittle;
-            perspectiveStatuses['小小怪'].textContent = '已带入旧记录，点“保存并同步”即可迁移。';
+          if (legacyLittle && window.storySync.getRole() === '小小二') {
+            perspectiveRows['小小二'] = legacyLittle;
+            perspectiveStatuses['小小二'].textContent = '已带入旧记录，点“保存并同步”即可迁移。';
           }
         } catch (e) {}
       }
@@ -635,7 +635,7 @@ function initMemoryModal(stories) {
       if (role) perspectiveStatuses[role].textContent = '同步暂不可用，请确认数据库脚本已运行。';
     }
   }
-  ['大大怪', '小小怪'].forEach(function (author) {
+  ['大大布', '小小二'].forEach(function (author) {
     perspectiveForms[author].addEventListener('submit', async function (e) {
       e.preventDefault();
       if (!window.storySync || window.storySync.getRole() !== author) return;

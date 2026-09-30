@@ -226,7 +226,7 @@ git commit -m "content: 29 chapter texts"
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>小小怪下士</title>
+  <title>小小二下士</title>
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
@@ -241,7 +241,7 @@ git commit -m "content: 29 chapter texts"
   </div>
 
   <header class="site-header">
-    <h1>小小怪下士</h1>
+    <h1>小小二下士</h1>
     <p class="site-sub">2025.11 – 2026.05</p>
   </header>
 
@@ -735,7 +735,7 @@ Start-Process -FilePath "C:\Users\48478\.cache\codex-runtimes\codex-primary-runt
 
 复用浏览器运行时（`globalThis.agent/browser`，若绑定丢失按 browser 技能重建），新建标签页打开 `http://localhost:8901/`，逐项断言：
 
-1. `h1` 文本 = `小小怪下士`。
+1. `h1` 文本 = `小小二下士`。
 2. 密码门：`#gate` 可见；输入错误值（`000000`）点 `#gate-btn` 后 `#gate-error` 非空且 `#gate` 仍可见；输入 `20251213` 后 `#gate` 含 `hidden` 类。
 3. `.chapter` 数量 = 29；`.photo-card` 数量 = 88。
 4. 图片全部加载：滚动到底触发 lazy load 后 `Array.from(document.images).every(i => i.complete && i.naturalWidth > 0)` 为 true。

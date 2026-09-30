@@ -12,8 +12,8 @@
   var complete = false;
   var activePerson = null;
   var people = [
-    createPerson('gate-girl', '小小怪学妹', 0.493, 0.791, -0.045),
-    createPerson('gate-boy', '大大怪学长', 0.835, 0.77, 0.045)
+    createPerson('gate-girl', '小小二学妹', 0.493, 0.791, -0.045),
+    createPerson('gate-boy', '大大布学长', 0.835, 0.77, 0.045)
   ];
 
   var already = false;
@@ -91,7 +91,7 @@
     if (complete) return;
     complete = true;
     gate.classList.add('is-complete');
-    status.textContent = '大大怪学长和小小怪学妹都到江西啦，正在打开我们的宇宙…';
+    status.textContent = '大大布学长和小小二学妹都到江西啦，正在打开我们的宇宙…';
     try { sessionStorage.setItem('unlocked', '1'); } catch (e) {}
     try { localStorage.setItem('story-gate-complete', '1'); } catch (e) {}
     setTimeout(function () {

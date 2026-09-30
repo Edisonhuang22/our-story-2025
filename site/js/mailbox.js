@@ -40,11 +40,11 @@
   ['sender', 'date', 'title', 'body', 'memory'].forEach(function (name) {
     fields[name] = document.getElementById('letter-' + name);
   });
-  var original = { id: originalId, date: '2026-08-19', title: '小作文', sender: '大大怪', original: true, photos: [] };
+  var original = { id: originalId, date: '2026-08-19', title: '小作文', sender: '大大布', original: true, photos: [] };
 
   function validLetter(letter, isDraft) {
     return letter && typeof letter.id === 'string' && typeof letter.title === 'string' && typeof letter.body === 'string' &&
-      (isDraft && letter.date === '' || /^\d{4}-\d{2}-\d{2}$/.test(letter.date)) && ['大大怪', '小小怪'].indexOf(letter.sender) !== -1;
+      (isDraft && letter.date === '' || /^\d{4}-\d{2}-\d{2}$/.test(letter.date)) && ['大大布', '小小二'].indexOf(letter.sender) !== -1;
   }
   try {
     localLetters = JSON.parse(localStorage.getItem(lettersKey) || '[]');
@@ -79,7 +79,7 @@
     el.textContent = value;
     return el;
   }
-  function recipient(letter) { return letter.sender === '大大怪' ? '小小怪' : '大大怪'; }
+  function recipient(letter) { return letter.sender === '大大布' ? '小小二' : '大大布'; }
   function show(panel, focusId) {
     [listPanel, composePanel, reader].forEach(function (el) { el.hidden = el !== panel; });
     if (focusId) {
@@ -199,7 +199,7 @@
     removedComposePhotos = [];
     renderPhotos('compose', composePhotos);
     editingId = letter && letter.id !== 'draft' ? letter.id : null;
-    fields.sender.value = role() || letter && letter.sender || '大大怪';
+    fields.sender.value = role() || letter && letter.sender || '大大布';
     fields.sender.disabled = syncing();
     fields.date.value = letter ? letter.date : today();
     fields.title.value = letter ? letter.title : '';

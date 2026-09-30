@@ -2,8 +2,8 @@
 
 (function initStorySync() {
   var allowed = {
-    '484784621@qq.com': '大大怪',
-    '1014779580@qq.com': '小小怪'
+    '484784621@qq.com': '大大布',
+    '1014779580@qq.com': '小小二'
   };
   var client = window.supabase.createClient(
     'https://ewqxttklaaqxybldaklc.supabase.co',
@@ -24,7 +24,7 @@
   dialog.className = 'sync-dialog';
   dialog.innerHTML = '<button class="sync-close" type="button" aria-label="关闭登录窗口">×</button>' +
     '<p class="gallery-kicker">OUR SHARED SPACE</p><h2>登录后同步回忆和信箱</h2>' +
-    '<p class="sync-intro">只有大大怪和小小怪的指定邮箱可以编辑。</p>' +
+    '<p class="sync-intro">只有大大布和小小二的指定邮箱可以编辑。</p>' +
     '<form id="sync-auth-form"><label>邮箱<input id="sync-email" type="email" autocomplete="email" required></label>' +
     '<label>密码<input id="sync-password" type="password" autocomplete="current-password" minlength="8" required></label>' +
     '<div class="sync-actions"><button class="small-btn" type="submit">登录</button><button class="sync-link" id="sync-signup" type="button">第一次使用，注册</button></div>' +
