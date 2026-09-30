@@ -142,7 +142,7 @@ Promise.all([
       }
     });
   } else {
-    galleryError.textContent = '在线回忆暂不可用；现有照片仍可浏览。';
+    galleryError.textContent = '在线回忆暂不可用：' + (gallery.error.message || '读取失败') + '。请刷新页面重试。';
   }
   stories = stories.filter(function (story) { return !story.hidden && story.photos.length; });
   stories.sort(function (a, b) {

@@ -114,8 +114,8 @@
       client.from('story_gallery_entries').select('folder,title,body,hidden,author'),
       client.from('story_gallery_photos').select('id,folder,static_src,storage_path,hidden,created_at').order('created_at', { ascending: true })
     ]);
-    if (results[0].error) throw results[0].error;
-    if (results[1].error) throw results[1].error;
+    if (results[0].error) throw new Error('回忆记录 HTTP ' + results[0].status + '：' + results[0].error.message);
+    if (results[1].error) throw new Error('照片记录 HTTP ' + results[1].status + '：' + results[1].error.message);
     return { entries: results[0].data || [], photos: results[1].data || [] };
   }
   function galleryPhotoUrl(path) {
