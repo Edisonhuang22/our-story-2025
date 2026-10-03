@@ -11,6 +11,8 @@ window.initGalleryEditor = function (stories, gallery, baseFolders) {
   var bodyInput = document.getElementById('gallery-editor-body');
   var filesInput = document.getElementById('gallery-editor-files');
   var fileHint = document.getElementById('gallery-editor-file-hint');
+  var fileStatus = document.getElementById('gallery-editor-file-status');
+  var previews = document.getElementById('gallery-editor-previews');
   var status = document.getElementById('gallery-editor-status');
   var submitButton = document.getElementById('gallery-editor-submit');
   var closeButton = document.getElementById('gallery-editor-close');
@@ -23,6 +25,7 @@ window.initGalleryEditor = function (stories, gallery, baseFolders) {
   var activePhoto = null;
   var editingStory = null;
   var originalPerspectiveBody = '';
+  var queuedPhotos = [];
   var busy = false;
 
   function folderFromDate(value) {
@@ -38,6 +41,40 @@ window.initGalleryEditor = function (stories, gallery, baseFolders) {
   }
   function canEditStory(story) {
     return story && Boolean(sync.getRole());
+  }
+  function renderQueuedPhotos() {
+    previews.replaceChildren();
+    previews.hidden = !queuedPhotos.length;
+    queuedPhotos.forEach(function (item) {
+      var card = document.createElement('div');
+      card.className = 'gallery-editor-preview';
+      var image = document.createElement('img');
+      image.src = item.url;
+      image.alt = '';
+      var name = document.createElement('span');
+      name.textContent = item.file.name + ' · ' + (item.file.size / 1048576).toFixed(1) + ' MB';
+      name.title = item.file.name;
+      var remove = document.createElement('button');
+      remove.type = 'button';
+      remove.textContent = '移除';
+      remove.setAttribute('aria-label', '移除待上传照片 ' + item.file.name);
+      remove.addEventListener('click', function () {
+        if (busy) return;
+        queuedPhotos.splice(queuedPhotos.indexOf(item), 1);
+        URL.revokeObjectURL(item.url);
+        fileStatus.textContent = '';
+        renderQueuedPhotos();
+      });
+      card.append(image, name, remove);
+      previews.appendChild(card);
+    });
+  }
+  function clearQueuedPhotos() {
+    queuedPhotos.forEach(function (item) { URL.revokeObjectURL(item.url); });
+    queuedPhotos = [];
+    filesInput.value = '';
+    fileStatus.textContent = '';
+    renderQueuedPhotos();
   }
   function updateButtons() {
     var canEdit = canEditStory(activeStory);
@@ -109,6 +146,7 @@ window.initGalleryEditor = function (stories, gallery, baseFolders) {
     if (story && !canEditStory(story)) return;
     editingStory = story || null;
     form.reset();
+    clearQueuedPhotos();
     status.textContent = '';
     removeMemoryButton.hidden = !story || story !== activeStory;
     removeMemoryButton.disabled = false;
@@ -121,8 +159,8 @@ window.initGalleryEditor = function (stories, gallery, baseFolders) {
       story && story.event.author === sync.getRole() ? story.event.text || '' : '';
     bodyInput.value = story === activeStory ? window.storyMemoryPerspective.getDraft(sync.getRole()) : originalPerspectiveBody;
     fileHint.textContent = story
-      ? '可以添加照片，也可以只修改文字。支持 JPG、PNG、WebP，每张不超过 10 MB。'
-      : '新回忆至少添加一张照片。支持 JPG、PNG、WebP，每张不超过 10 MB。';
+      ? '每次选择一张，选中后预览；也可以只修改文字。支持 JPG、PNG、WebP，每张不超过 10 MB。'
+      : '每次选择一张，选中后预览。新回忆至少添加一张照片；支持 JPG、PNG、WebP，每张不超过 10 MB。';
     hiddenEntries.hidden = Boolean(story);
     hiddenPhotos.hidden = !story;
     if (story) showHiddenPhotos(story.event.folder);
@@ -136,17 +174,27 @@ window.initGalleryEditor = function (stories, gallery, baseFolders) {
   closeButton.addEventListener('click', function () { if (!busy) dialog.close(); });
   dialog.addEventListener('cancel', function (event) { if (busy) event.preventDefault(); });
   dialog.addEventListener('click', function (event) { if (event.target === dialog && !busy) dialog.close(); });
+  dialog.addEventListener('close', clearQueuedPhotos);
   sync.onAuthChange(updateButtons);
+
+  filesInput.addEventListener('change', function () {
+    if (busy) return;
+    var rejected = [];
+    Array.from(filesInput.files).forEach(function (file) {
+      if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) rejected.push(file.name + '：格式不支持');
+      else if (file.size > 10485760) rejected.push(file.name + '：超过 10 MB');
+      else queuedPhotos.push({ file: file, url: URL.createObjectURL(file) });
+    });
+    filesInput.value = '';
+    renderQueuedPhotos();
+    fileStatus.textContent = rejected.length ? '已跳过 ' + rejected.join('；') + '。其他已选照片保留。' : '';
+  });
 
   form.addEventListener('submit', async function (event) {
     event.preventDefault();
     if (busy || !sync.getRole() || (editingStory && !canEditStory(editingStory))) return;
-    var files = Array.from(filesInput.files);
+    var files = queuedPhotos.map(function (item) { return item.file; });
     if (!editingStory && !files.length) { status.textContent = '请先选择至少一张照片。'; return; }
-    if (files.some(function (file) { return !['image/jpeg', 'image/png', 'image/webp'].includes(file.type) || file.size > 10485760; })) {
-      status.textContent = '只能上传 JPG、PNG、WebP，且每张不超过 10 MB。';
-      return;
-    }
     var folder = editingStory ? editingStory.event.folder : folderFromDate(dateInput.value);
     if (!editingStory && (baseFolders.has(folder) || gallery.entries.some(function (entry) { return entry.folder === folder; }))) {
       status.textContent = '这一天已有回忆。请打开对应回忆编辑，或先恢复已移出的回忆。';
@@ -158,6 +206,7 @@ window.initGalleryEditor = function (stories, gallery, baseFolders) {
     busy = true;
     submitButton.disabled = true;
     closeButton.disabled = true;
+    filesInput.disabled = true;
     var uploaded = 0;
     try {
       status.textContent = '正在保存回忆…';
@@ -171,6 +220,12 @@ window.initGalleryEditor = function (stories, gallery, baseFolders) {
       for (var i = 0; i < files.length; i++) {
         status.textContent = '正在上传第 ' + (i + 1) + ' / ' + files.length + ' 张照片…';
         await sync.uploadGalleryPhoto(folder, files[i]);
+        var uploadedItem = queuedPhotos.find(function (item) { return item.file === files[i]; });
+        if (uploadedItem) {
+          queuedPhotos.splice(queuedPhotos.indexOf(uploadedItem), 1);
+          URL.revokeObjectURL(uploadedItem.url);
+          renderQueuedPhotos();
+        }
         uploaded++;
       }
       location.reload();
@@ -183,6 +238,7 @@ window.initGalleryEditor = function (stories, gallery, baseFolders) {
       busy = false;
       submitButton.disabled = false;
       closeButton.disabled = false;
+      filesInput.disabled = false;
     }
   });
 
