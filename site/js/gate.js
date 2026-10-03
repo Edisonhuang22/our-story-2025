@@ -17,8 +17,11 @@
   ];
 
   var already = false;
-  try { already = sessionStorage.getItem('unlocked') === '1'; } catch (e) {}
-  try { already = already || localStorage.getItem('story-gate-complete') === '1'; } catch (e) {}
+  try { already = sessionStorage.getItem('story-map-complete') === '1'; } catch (e) {}
+  if (location.pathname.endsWith('/easter-egg.html')) {
+    try { already = already || sessionStorage.getItem('unlocked') === '1'; } catch (e) {}
+    try { already = already || localStorage.getItem('story-gate-complete') === '1'; } catch (e) {}
+  }
   var background = document.querySelectorAll('body > header, body > main, body > .egg-footer, body > .memory-modal');
 
   function setGateOpen(open) {
@@ -92,6 +95,7 @@
     complete = true;
     gate.classList.add('is-complete');
     status.textContent = '大大布学长和小小二学妹都到江西啦，正在打开我们的宇宙…';
+    try { sessionStorage.setItem('story-map-complete', '1'); } catch (e) {}
     try { sessionStorage.setItem('unlocked', '1'); } catch (e) {}
     try { localStorage.setItem('story-gate-complete', '1'); } catch (e) {}
     setTimeout(function () {
