@@ -45,35 +45,48 @@ window.initGalleryEditor = function (stories, gallery, baseFolders) {
   function renderQueuedPhotos() {
     previews.replaceChildren();
     previews.hidden = !queuedPhotos.length;
+    var invalidCount = queuedPhotos.filter(function (item) { return item.reason; }).length;
+    fileStatus.textContent = invalidCount ? invalidCount + ' 张照片无法上传。请点红色卡片右上角的 × 移除。' : '';
     queuedPhotos.forEach(function (item) {
       var card = document.createElement('div');
-      card.className = 'gallery-editor-preview';
-      var image = document.createElement('img');
-      image.src = item.url;
-      image.alt = '';
+      card.className = 'gallery-editor-preview' + (item.reason ? ' is-invalid' : '');
+      var image;
+      if (item.url) {
+        image = document.createElement('img');
+        image.src = item.url;
+        image.alt = '';
+      } else {
+        image = document.createElement('div');
+        image.className = 'gallery-editor-preview-empty';
+        image.textContent = '无法预览';
+      }
       var name = document.createElement('span');
-      name.textContent = item.file.name + ' · ' + (item.file.size / 1048576).toFixed(1) + ' MB';
+      name.textContent = item.file.name + ' · ' + (Math.ceil(item.file.size / 1048576 * 100) / 100).toFixed(2) + ' MB';
       name.title = item.file.name;
       var remove = document.createElement('button');
       remove.type = 'button';
-      remove.textContent = '移除';
+      remove.textContent = '×';
       remove.setAttribute('aria-label', '移除待上传照片 ' + item.file.name);
       remove.addEventListener('click', function () {
         if (busy) return;
         queuedPhotos.splice(queuedPhotos.indexOf(item), 1);
-        URL.revokeObjectURL(item.url);
-        fileStatus.textContent = '';
+        if (item.url) URL.revokeObjectURL(item.url);
         renderQueuedPhotos();
       });
-      card.append(image, name, remove);
+      card.append(image, name);
+      if (item.reason) {
+        var reason = document.createElement('strong');
+        reason.textContent = item.reason;
+        card.appendChild(reason);
+      }
+      card.appendChild(remove);
       previews.appendChild(card);
     });
   }
   function clearQueuedPhotos() {
-    queuedPhotos.forEach(function (item) { URL.revokeObjectURL(item.url); });
+    queuedPhotos.forEach(function (item) { if (item.url) URL.revokeObjectURL(item.url); });
     queuedPhotos = [];
     filesInput.value = '';
-    fileStatus.textContent = '';
     renderQueuedPhotos();
   }
   function updateButtons() {
@@ -159,8 +172,8 @@ window.initGalleryEditor = function (stories, gallery, baseFolders) {
       story && story.event.author === sync.getRole() ? story.event.text || '' : '';
     bodyInput.value = story === activeStory ? window.storyMemoryPerspective.getDraft(sync.getRole()) : originalPerspectiveBody;
     fileHint.textContent = story
-      ? '每次选择一张，选中后预览；也可以只修改文字。支持 JPG、PNG、WebP，每张不超过 10 MB。'
-      : '每次选择一张，选中后预览。新回忆至少添加一张照片；支持 JPG、PNG、WebP，每张不超过 10 MB。';
+      ? '可一次选择多张，选后逐张预览。红色照片无法上传，请移除；支持 JPG、PNG、WebP，每张不超过 10 MB。'
+      : '新回忆至少添加一张照片。可一次选择多张，选后逐张预览；红色照片无法上传，请移除。';
     hiddenEntries.hidden = Boolean(story);
     hiddenPhotos.hidden = !story;
     if (story) showHiddenPhotos(story.event.folder);
@@ -179,20 +192,25 @@ window.initGalleryEditor = function (stories, gallery, baseFolders) {
 
   filesInput.addEventListener('change', function () {
     if (busy) return;
-    var rejected = [];
     Array.from(filesInput.files).forEach(function (file) {
-      if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) rejected.push(file.name + '：格式不支持');
-      else if (file.size > 10485760) rejected.push(file.name + '：超过 10 MB');
-      else queuedPhotos.push({ file: file, url: URL.createObjectURL(file) });
+      var supported = ['image/jpeg', 'image/png', 'image/webp'].includes(file.type);
+      queuedPhotos.push({
+        file: file,
+        url: supported ? URL.createObjectURL(file) : '',
+        reason: !supported ? '格式不支持' : file.size > 10485760 ? '超过 10 MB' : ''
+      });
     });
     filesInput.value = '';
     renderQueuedPhotos();
-    fileStatus.textContent = rejected.length ? '已跳过 ' + rejected.join('；') + '。其他已选照片保留。' : '';
   });
 
   form.addEventListener('submit', async function (event) {
     event.preventDefault();
     if (busy || !sync.getRole() || (editingStory && !canEditStory(editingStory))) return;
+    if (queuedPhotos.some(function (item) { return item.reason; })) {
+      status.textContent = '请先移除标红的照片，再保存。';
+      return;
+    }
     var files = queuedPhotos.map(function (item) { return item.file; });
     if (!editingStory && !files.length) { status.textContent = '请先选择至少一张照片。'; return; }
     var folder = editingStory ? editingStory.event.folder : folderFromDate(dateInput.value);
@@ -223,7 +241,7 @@ window.initGalleryEditor = function (stories, gallery, baseFolders) {
         var uploadedItem = queuedPhotos.find(function (item) { return item.file === files[i]; });
         if (uploadedItem) {
           queuedPhotos.splice(queuedPhotos.indexOf(uploadedItem), 1);
-          URL.revokeObjectURL(uploadedItem.url);
+          if (uploadedItem.url) URL.revokeObjectURL(uploadedItem.url);
           renderQueuedPhotos();
         }
         uploaded++;

@@ -578,14 +578,18 @@ body.loaded .hero-portrait { animation: fadeOpacity 0.7s ease 0.1s both; }
 .gallery-editor textarea { resize: vertical; line-height: 1.7; }
 .gallery-editor input:disabled { opacity: .65; }
 .gallery-editor-hint { margin-top: -7px; color: var(--ink-soft); font-size: .73rem; line-height: 1.6; }
-.gallery-editor-file-status { color: var(--accent-deep); font-size: .75rem; }
+.gallery-editor-file-status { color: #a24559; font-size: .75rem; }
 .gallery-editor-file-status:empty { display: none; }
 .gallery-editor-previews { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 10px; }
 .gallery-editor-previews[hidden] { display: none; }
-.gallery-editor-preview { min-width: 0; padding: 7px; border: 1px solid var(--border); border-radius: 12px; }
+.gallery-editor-preview { position: relative; min-width: 0; padding: 7px; border: 1px solid var(--border); border-radius: 12px; }
+.gallery-editor-preview.is-invalid { border-color: #c76072; background: #fff0f1; }
 .gallery-editor-preview img { display: block; width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 8px; }
+.gallery-editor-preview-empty { display: grid; place-items: center; aspect-ratio: 1; border-radius: 8px; color: #a24559; background: #f9dfe3; font-size: .75rem; }
 .gallery-editor-preview span { display: block; overflow: hidden; margin-top: 7px; color: var(--ink-soft); font-size: .7rem; text-overflow: ellipsis; white-space: nowrap; }
-.gallery-editor-preview button { margin-top: 7px; padding: 0; border: 0; color: #a45a6b; background: none; cursor: pointer; font: inherit; font-size: .72rem; }
+.gallery-editor-preview.is-invalid span { color: #a24559; }
+.gallery-editor-preview strong { display: block; margin-top: 4px; color: #a24559; font-size: .7rem; }
+.gallery-editor-preview button { position: absolute; top: 3px; right: 3px; width: 26px; height: 26px; padding: 0; border: 0; border-radius: 50%; color: #522b35; background: #fff; box-shadow: 0 1px 5px #33264840; cursor: pointer; font-family: inherit; font-size: 20px; line-height: 1; }
 .gallery-editor-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; }
 #gallery-editor-status { color: var(--accent-deep); font-size: .76rem; line-height: 1.5; }
 .gallery-hidden-photos, .gallery-hidden-entries { display: flex; flex-wrap: wrap; gap: 8px; padding-top: 14px; border-top: 1px solid var(--border); }
