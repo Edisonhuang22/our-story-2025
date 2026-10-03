@@ -311,7 +311,6 @@ body.gate-open { overflow: hidden; }
   font-size: 0.75rem;
   max-width: 360px;
 }
-.hero-chapter { color: var(--accent-deep); font-size: 0.7rem; letter-spacing: 0.12em; white-space: nowrap; }
 .hero-tag-sub { color: var(--accent); letter-spacing: 0.14em; }
 
 .pill-btn {
@@ -555,6 +554,7 @@ body.loaded .hero-portrait { animation: fadeOpacity 0.7s ease 0.1s both; }
 .gallery-add { margin-left: auto; white-space: nowrap; }
 .gallery-manage-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 24px; }
 .gallery-danger { background: #a45a6b; }
+.gallery-editor > .gallery-danger { margin-top: 18px; }
 .detail-remove-photo {
   position: absolute;
   z-index: 2;
@@ -862,7 +862,6 @@ body.modal-open { overflow: hidden; }
   .hero-portrait-pos { max-width: 280px; margin: 28px 0 10px; }
   .hero-bottom { gap: 0.8rem; }
   .hero-tag { max-width: 220px; font-size: 0.66rem; }
-  .hero-chapter { font-size: 0.6rem; }
   .pill-btn { flex-shrink: 0; padding: 0.68rem 1.2rem; font-size: 0.8rem; }
   .memory-gallery { width: min(100% - 20px, 1240px); padding-top: 4rem; }
   .gallery-copy { padding: 0 0.8rem; }

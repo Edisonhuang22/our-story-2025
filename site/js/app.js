@@ -588,6 +588,7 @@ function initMemoryModal(stories) {
   };
   var perspectiveLogin = document.getElementById('perspective-login');
   var perspectiveLoginButton = document.getElementById('perspective-login-button');
+  var editMemoryButton = document.getElementById('detail-edit-memory');
   var perspectiveRows = {};
   var perspectiveLoadId = 0;
   var background = document.querySelectorAll('body > header, body > main, body > .egg-footer');
@@ -596,18 +597,27 @@ function initMemoryModal(stories) {
     var story = stories[currentStory];
     return author === (story.event.author || '大大布') ? story.event.text : '';
   }
+  function perspectiveBody(author) {
+    return Object.prototype.hasOwnProperty.call(perspectiveRows, author) ? perspectiveRows[author] : defaultPerspective(author);
+  }
+  window.storyMemoryPerspective = {
+    getBody: perspectiveBody,
+    getDraft: function (author) {
+      return perspectiveForms[author].hidden ? perspectiveBody(author) : perspectiveTexts[author].value;
+    }
+  };
   function renderPerspectives() {
     var role = window.storySync && window.storySync.getRole();
     ['大大布', '小小二'].forEach(function (author) {
-      var body = '';
-      if (role) body = Object.prototype.hasOwnProperty.call(perspectiveRows, author) ? perspectiveRows[author] : defaultPerspective(author);
+      var body = role ? perspectiveBody(author) : '';
       perspectiveDisplays[author].textContent = role ? body || '还没有写下这一段回忆。' : '';
-      perspectiveDisplays[author].hidden = !role || role === author;
-      perspectiveForms[author].hidden = role !== author;
-      perspectiveTexts[author].value = role === author ? body : '';
-      document.getElementById(author === '大大布' ? 'big-perspective-label' : 'little-perspective-label').hidden = !role || role === author;
+      perspectiveDisplays[author].hidden = !role || (role === author && !body);
+      perspectiveForms[author].hidden = role !== author || Boolean(body);
+      if (perspectiveForms[author].hidden) perspectiveTexts[author].value = '';
+      document.getElementById(author === '大大布' ? 'big-perspective-label' : 'little-perspective-label').hidden = !role || (role === author && !body);
       document.getElementById(author === '大大布' ? 'big-perspective-block' : 'little-perspective-block').hidden = !role;
     });
+    if (role) editMemoryButton.textContent = perspectiveBody(role) ? '修改回忆 / 添加照片' : '保存回忆 / 添加照片';
     perspectiveLogin.hidden = Boolean(role);
   }
   async function loadPerspectives() {
@@ -620,16 +630,20 @@ function initMemoryModal(stories) {
       var rows = await window.storySync.load(folder);
       if (requestId !== perspectiveLoadId || folder !== stories[currentStory].event.folder) return;
       rows.forEach(function (row) { perspectiveRows[row.author] = row.body; });
+      var legacyDraft = '';
       if (!Object.prototype.hasOwnProperty.call(perspectiveRows, '小小二')) {
         try {
           var legacyLittle = localStorage.getItem('story-perspective:' + folder);
           if (legacyLittle && window.storySync.getRole() === '小小二') {
-            perspectiveRows['小小二'] = legacyLittle;
-            perspectiveStatuses['小小二'].textContent = '已带入旧记录，点“保存并同步”即可迁移。';
+            legacyDraft = legacyLittle;
           }
         } catch (e) {}
       }
       renderPerspectives();
+      if (legacyDraft && !perspectiveForms['小小二'].hidden) {
+        perspectiveTexts['小小二'].value = legacyDraft;
+        perspectiveStatuses['小小二'].textContent = '已带入旧记录，点“保存回忆 / 添加照片”即可迁移。';
+      }
     } catch (err) {
       var role = window.storySync.getRole();
       if (role) perspectiveStatuses[role].textContent = '同步暂不可用，请确认数据库脚本已运行。';
@@ -640,11 +654,13 @@ function initMemoryModal(stories) {
       e.preventDefault();
       if (!window.storySync || window.storySync.getRole() !== author) return;
       var folder = stories[currentStory].event.folder;
+      var body = perspectiveTexts[author].value.trim();
+      if (!body) { perspectiveStatuses[author].textContent = '请先写下回忆。'; return; }
       perspectiveStatuses[author].textContent = '正在同步…';
       try {
-        await window.storySync.save(folder, perspectiveTexts[author].value.trim());
-        perspectiveRows[author] = perspectiveTexts[author].value.trim();
-        perspectiveStatuses[author].textContent = '已同步给对方';
+        await window.storySync.save(folder, body);
+        perspectiveRows[author] = body;
+        perspectiveStatuses[author].textContent = '';
         renderPerspectives();
       } catch (err) {
         perspectiveStatuses[author].textContent = '同步失败，请稍后重试。';
@@ -653,6 +669,12 @@ function initMemoryModal(stories) {
     perspectiveTexts[author].addEventListener('input', function () {
       perspectiveStatuses[author].textContent = '尚未同步';
     });
+  });
+  editMemoryButton.addEventListener('click', function () {
+    var role = window.storySync.getRole();
+    if (!role) return;
+    if (!perspectiveBody(role) && perspectiveTexts[role].value.trim()) perspectiveForms[role].requestSubmit();
+    else if (window.storyGalleryEditor) window.storyGalleryEditor.editStory();
   });
   perspectiveLoginButton.addEventListener('click', function () { window.storySync.openAuth(); });
   window.storySync.onAuthChange(function () { renderPerspectives(); loadPerspectives(); });
@@ -742,6 +764,7 @@ function initMemoryModal(stories) {
     date.textContent = story.event.date;
     title.textContent = story.event.title;
     Object.keys(perspectiveStatuses).forEach(function (author) { perspectiveStatuses[author].textContent = ''; });
+    Object.keys(perspectiveTexts).forEach(function (author) { perspectiveTexts[author].value = ''; });
     loadPerspectives();
     buildThumbs(story);
     preloadPreview(story.photos[photoIndex]);

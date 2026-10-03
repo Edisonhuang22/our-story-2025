@@ -17,12 +17,12 @@ window.initGalleryEditor = function (stories, gallery, baseFolders) {
   var hiddenPhotos = document.getElementById('gallery-hidden-photos');
   var hiddenEntries = document.getElementById('gallery-hidden-entries');
   var manageActions = document.getElementById('gallery-manage-actions');
-  var editButton = document.getElementById('detail-edit-memory');
   var removePhotoButton = document.getElementById('detail-remove-photo');
   var removeMemoryButton = document.getElementById('detail-delete-memory');
   var activeStory = null;
   var activePhoto = null;
   var editingStory = null;
+  var originalPerspectiveBody = '';
   var busy = false;
 
   function folderFromDate(value) {
@@ -110,12 +110,16 @@ window.initGalleryEditor = function (stories, gallery, baseFolders) {
     editingStory = story || null;
     form.reset();
     status.textContent = '';
+    removeMemoryButton.hidden = !story || story !== activeStory;
+    removeMemoryButton.disabled = false;
     title.textContent = story ? '编辑回忆' : '添加回忆';
     dateInput.disabled = false;
     dateInput.value = story ? story.event.memoryDate || dateFromFolder(story.event.folder) : new Date().toLocaleDateString('sv-SE');
     nameInput.value = story ? story.event.title : '';
-    bodyInput.closest('label').hidden = Boolean(story);
-    bodyInput.value = story ? story.event.text : '';
+    bodyInput.closest('label').hidden = false;
+    originalPerspectiveBody = story === activeStory ? window.storyMemoryPerspective.getBody(sync.getRole()) :
+      story && story.event.author === sync.getRole() ? story.event.text || '' : '';
+    bodyInput.value = story === activeStory ? window.storyMemoryPerspective.getDraft(sync.getRole()) : originalPerspectiveBody;
     fileHint.textContent = story
       ? '可以添加照片，也可以只修改文字。支持 JPG、PNG、WebP，每张不超过 10 MB。'
       : '新回忆至少添加一张照片。支持 JPG、PNG、WebP，每张不超过 10 MB。';
@@ -129,7 +133,6 @@ window.initGalleryEditor = function (stories, gallery, baseFolders) {
 
   addButton.hidden = false;
   addButton.addEventListener('click', function () { openEditor(null); });
-  editButton.addEventListener('click', function () { openEditor(activeStory); });
   closeButton.addEventListener('click', function () { if (!busy) dialog.close(); });
   dialog.addEventListener('cancel', function (event) { if (busy) event.preventDefault(); });
   dialog.addEventListener('click', function (event) { if (event.target === dialog && !busy) dialog.close(); });
@@ -158,7 +161,13 @@ window.initGalleryEditor = function (stories, gallery, baseFolders) {
     var uploaded = 0;
     try {
       status.textContent = '正在保存回忆…';
-      await sync.saveGalleryEntry(entry);
+      if (editingStory && bodyInput.value.trim() !== originalPerspectiveBody) {
+        await sync.save(folder, bodyInput.value.trim());
+      }
+      if (!editingStory || files.length || entry.title !== editingStory.event.title ||
+          entry.memory_date !== (editingStory.event.memoryDate || dateFromFolder(folder))) {
+        await sync.saveGalleryEntry(entry);
+      }
       for (var i = 0; i < files.length; i++) {
         status.textContent = '正在上传第 ' + (i + 1) + ' / ' + files.length + ' 张照片…';
         await sync.uploadGalleryPhoto(folder, files[i]);
@@ -218,6 +227,7 @@ window.initGalleryEditor = function (stories, gallery, baseFolders) {
   });
 
   window.storyGalleryEditor = {
+    editStory: function () { openEditor(activeStory); },
     openStory: function (story) { activeStory = story; activePhoto = story.photos[0]; updateButtons(); },
     showPhoto: function (photo) { activePhoto = photo; updateButtons(); }
   };
