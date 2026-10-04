@@ -76,10 +76,17 @@ function getOrbitProfile() {
   if (lowPower) {
     return { name: 'balanced', maxNodes: 64, frameInterval: 20, visibilityThreshold: -0.45, reducedEffects: true };
   }
-  return { name: 'desktop', maxNodes: Infinity, frameInterval: 16, visibilityThreshold: -0.56, reducedEffects: false };
+  return { name: 'desktop-single', maxNodes: Infinity, onePhotoPerStory: true, frameInterval: 16, visibilityThreshold: -0.56, reducedEffects: false };
 }
 
-function selectOrbitPhotos(stories, maxNodes) {
+function selectOrbitPhotos(stories, maxNodes, onePhotoPerStory) {
+  if (onePhotoPerStory) {
+    var firstPhotos = Object.create(null);
+    stories.forEach(function (story, storyIndex) {
+      firstPhotos[storyIndex + ':0'] = true;
+    });
+    return firstPhotos;
+  }
   var total = stories.reduce(function (sum, story) { return sum + story.photos.length; }, 0);
   if (total <= maxNodes) return null;
 
@@ -315,7 +322,7 @@ function renderOrbit(stories) {
   var fragment = document.createDocumentFragment();
   var clusterColors = ['#8f83d8', '#e28b8b', '#75a998', '#d49a54', '#8aa6d1'];
   var goldenAngle = Math.PI * (3 - Math.sqrt(5));
-  var selectedPhotos = selectOrbitPhotos(stories, orbitProfile.maxNodes);
+  var selectedPhotos = selectOrbitPhotos(stories, orbitProfile.maxNodes, orbitProfile.onePhotoPerStory);
 
   stories.forEach(function (story, storyIndex) {
     var t = stories.length === 1 ? 0.5 : storyIndex / (stories.length - 1);
