@@ -36,6 +36,8 @@
   var memoryLink = document.getElementById('letter-memory-link');
   var syncNote = document.getElementById('mailbox-sync-note');
   var syncButton = document.getElementById('mailbox-sync-button');
+  var deleteButton = document.getElementById('delete-letter');
+  var composeDeleteButton = document.getElementById('compose-delete-letter');
   var fields = {};
   ['sender', 'date', 'title', 'body', 'memory'].forEach(function (name) {
     fields[name] = document.getElementById('letter-' + name);
@@ -165,6 +167,9 @@
   function canEdit(letter) {
     return !letter.original && (!syncing() || letter.sender === role());
   }
+  function canDelete(letter) {
+    return Boolean(letter) && !letter.original && (!syncing() || letter.sender === role() || letter.localOnly);
+  }
   function readLetter(letter) {
     current = letter;
     renderPhotos('reader', letter.photos || []);
@@ -187,6 +192,7 @@
     memoryLink.hidden = !letter.memory;
     if (letter.memory) memoryLink.href = 'index.html?memory=' + encodeURIComponent(letter.memory) + '#photos';
     document.getElementById('edit-letter').hidden = !canEdit(letter);
+    if (deleteButton) deleteButton.hidden = !canDelete(letter);
     document.getElementById('reader-photo-input').hidden = syncing() && !letter.original && !canEdit(letter);
     show(reader, 'letter-content');
   }
@@ -208,6 +214,7 @@
     fields.title.setCustomValidity('');
     fields.body.setCustomValidity('');
     document.getElementById('compose-title').textContent = editingId ? '修改这封信' : '写一封信';
+    if (composeDeleteButton) composeDeleteButton.hidden = !editingId || !canDelete(letter);
     draftStatus.textContent = syncing() ? '草稿只保存在此浏览器，收进信箱后会同步。' : letter ? '已恢复文字，修改后记得收进信箱。' : '草稿会自动保存在此浏览器。';
     show(composePanel, 'compose-title');
   }
@@ -312,6 +319,67 @@
     }
     compose(current);
   });
+  async function deleteLetterAction(letter) {
+    if (!letter || !canDelete(letter)) return;
+    var letterTitle = letter.title || '这封信';
+    if (!window.confirm('确定删除信件【' + letterTitle + '】吗？\n删除后将无法恢复。')) return;
+
+    var isCloud = syncing() && !letter.localOnly;
+    var controlsToDisable = [deleteButton, composeDeleteButton].filter(Boolean);
+    controlsToDisable.forEach(function (btn) { btn.disabled = true; });
+
+    status.textContent = '正在删除信件…';
+    try {
+      if (isCloud) {
+        await storySync().deleteLetter(letter.id);
+      }
+
+      letters = letters.filter(function (item) { return item.id !== letter.id; });
+      var nextLocal = localLetters.filter(function (item) { return item.id !== letter.id; });
+      writeLocalLetters(nextLocal);
+
+      if (draft && draft.id === letter.id) {
+        clearDraft();
+      }
+
+      if (letter.photos && letter.photos.length) {
+        letter.photos.forEach(function (photo) {
+          if (photo.id) {
+            photoStore('readwrite', function (store) { return store.delete(photo.id); }).catch(function () {});
+          }
+        });
+      }
+
+      photoUrls.reader.forEach(function (url) { URL.revokeObjectURL(url); });
+      photoUrls.reader = [];
+      photoUrls.compose.forEach(function (url) { URL.revokeObjectURL(url); });
+      photoUrls.compose = [];
+
+      editingId = null;
+      current = null;
+      composePhotos = [];
+      removedComposePhotos = [];
+
+      renderList();
+      show(listPanel, 'mailbox-list-title');
+      status.textContent = isCloud ? '这封信已从双方信箱删除。' : '这封信已删除。';
+    } catch (err) {
+      status.textContent = '删除信件失败：' + (err.message || '请稍后重试');
+    } finally {
+      controlsToDisable.forEach(function (btn) { btn.disabled = false; });
+    }
+  }
+  if (deleteButton) {
+    deleteButton.addEventListener('click', function () {
+      if (current) deleteLetterAction(current);
+    });
+  }
+  if (composeDeleteButton) {
+    composeDeleteButton.addEventListener('click', function () {
+      var target = (editingId && letters.find(function (item) { return item.id === editingId; })) || current;
+      if (target) deleteLetterAction(target);
+    });
+  }
   document.getElementById('download-letter').addEventListener('click', function () {
     var text = current.date + '\n\n' + content.innerText;
     var url = URL.createObjectURL(new Blob([text], { type: 'text/plain;charset=utf-8' }));
@@ -431,7 +499,7 @@
       photoBusy = true;
       var files = Array.from(input.files);
       var message = place === 'compose' ? draftStatus : status;
-      var controls = Array.from(document.querySelectorAll('#letter-form button, #cancel-letter, #back-to-mailbox, #edit-letter, input[type=file]'));
+      var controls = Array.from(document.querySelectorAll('#letter-form button, #cancel-letter, #back-to-mailbox, #edit-letter, #delete-letter, #compose-delete-letter, input[type=file]'));
       controls.forEach(function (el) { el.disabled = true; });
       message.textContent = '正在保存照片…';
       try {

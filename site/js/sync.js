@@ -162,6 +162,34 @@
     var removal = await client.storage.from('story-gallery').remove([photo.storage_path]);
     if (removal.error) throw removal.error;
   }
+  async function purgeGalleryMemory(folder) {
+    if (!currentRole) throw new Error('请先登录');
+    var photosResult = await client.from('story_gallery_photos').select('id,storage_path').eq('folder', folder);
+    if (photosResult.error) throw photosResult.error;
+    var storagePaths = (photosResult.data || []).map(function (p) { return p.storage_path; }).filter(Boolean);
+    if (storagePaths.length > 0) {
+      try {
+        var removal = await client.storage.from('story-gallery').remove(storagePaths);
+        if (removal.error) console.warn('存储文件清理提示：', removal.error);
+      } catch (storageError) {
+        console.warn('存储文件清理异常：', storageError);
+      }
+    }
+    var deletePhotos = await client.from('story_gallery_photos').delete().eq('folder', folder);
+    if (deletePhotos.error) throw deletePhotos.error;
+    try {
+      await client.from('memory_perspectives').delete().eq('folder', folder);
+    } catch (perspectiveError) {
+      console.warn('视角文字清理提示：', perspectiveError);
+    }
+    try {
+      await client.from('story_letters').update({ memory: null }).eq('memory', folder);
+    } catch (letterError) {
+      console.warn('信件关联解绑提示：', letterError);
+    }
+    var deleteEntry = await client.from('story_gallery_entries').delete().eq('folder', folder);
+    if (deleteEntry.error) throw deleteEntry.error;
+  }
 
   async function loadMailbox() {
     if (!currentRole) return { letters: [], photos: [] };
@@ -223,6 +251,23 @@
     if (result.error) throw result.error;
     return result.data;
   }
+  async function deleteLetter(letterId) {
+    if (!currentRole) throw new Error('请先登录');
+    var photosResult = await client.from('story_letter_photos').select('id,storage_path').eq('letter_id', letterId);
+    if (photosResult.error) throw photosResult.error;
+    var storagePaths = (photosResult.data || []).map(function (p) { return p.storage_path; }).filter(Boolean);
+    if (storagePaths.length > 0) {
+      try {
+        var removal = await client.storage.from('story-letter-photos').remove(storagePaths);
+        if (removal.error) console.warn('信件照片存储清理提示：', removal.error);
+      } catch (storageError) {
+        console.warn('信件照片存储清理异常：', storageError);
+      }
+    }
+    var result = await client.from('story_letters').delete().eq('id', letterId);
+    if (result.error) throw result.error;
+    return true;
+  }
   function onMailboxChange(callback) {
     if (mailboxChannel) client.removeChannel(mailboxChannel);
     mailboxChannel = client.channel('story-mailbox')
@@ -247,8 +292,10 @@
     uploadGalleryPhoto: uploadGalleryPhoto,
     setStaticGalleryPhotoHidden: setStaticGalleryPhotoHidden,
     deleteGalleryPhoto: deleteGalleryPhoto,
+    purgeGalleryMemory: purgeGalleryMemory,
     loadMailbox: loadMailbox,
     saveLetter: saveLetter,
+    deleteLetter: deleteLetter,
     uploadLetterPhoto: uploadLetterPhoto,
     removeLetterPhoto: removeLetterPhoto,
     downloadLetterPhoto: downloadLetterPhoto,

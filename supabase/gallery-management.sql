@@ -144,4 +144,11 @@ using (
   and public.is_story_member()
 );
 
+-- Allow story members to delete perspectives when purging a memory
+grant delete on public.memory_perspectives to authenticated;
+drop policy if exists "Story members delete memories" on public.memory_perspectives;
+create policy "Story members delete memories"
+on public.memory_perspectives for delete to authenticated
+using (public.is_story_member());
+
 -- Original prose is migrated separately and is kept out of the public repository.

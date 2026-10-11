@@ -180,7 +180,10 @@
       <div class="gallery-hidden-photos" id="gallery-hidden-photos" hidden></div>
       <div class="gallery-editor-actions"><button class="small-btn" id="gallery-editor-submit" type="submit">保存并同步</button><span id="gallery-editor-status" role="status"></span></div>
     </form>
-    <button class="small-btn gallery-danger" id="detail-delete-memory" type="button" hidden>移除整段回忆</button>
+    <div class="gallery-editor-danger-group" id="gallery-editor-danger-group">
+      <button class="small-btn gallery-danger" id="detail-delete-memory" type="button" hidden>移出整段回忆</button>
+      <button class="small-btn gallery-purge-btn" id="detail-purge-memory" type="button" hidden>彻底删除回忆</button>
+    </div>
     <div class="gallery-hidden-entries" id="gallery-hidden-entries" hidden></div>
   </dialog>
 
@@ -191,8 +194,8 @@
 
   <script src="js/gate.js?v=20261003-4"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="js/sync.js?v=20260930-4"></script>
-  <script src="js/gallery-editor.js?v=20261003-3"></script>
+  <script src="js/sync.js?v=20261012-1"></script>
+  <script src="js/gallery-editor.js?v=20261012-1"></script>
   <script src="js/app.js?v=20261005-1"></script>
 </body>
 </html>

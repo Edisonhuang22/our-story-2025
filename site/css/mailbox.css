@@ -17,6 +17,8 @@ main.egg-page { max-width: 1000px; }
 #mailbox-sync-button { margin-left: 0.5rem; }
 .mail-link, .draft-link { border: 0; background: transparent; color: var(--accent-deep); cursor: pointer; font-size: 0.86rem; padding: 8px 0; }
 .mail-link:hover, .draft-link:hover { text-decoration: underline; text-underline-offset: 4px; }
+.mail-link.mail-danger { color: #a45a6b; }
+.mail-link.mail-danger:hover { color: #8e4455; }
 .draft-link { margin-top: 18px; }
 .mailbox-status { color: var(--accent-deep); font-size: 0.82rem; }
 .mailbox-status:empty { display: none; }

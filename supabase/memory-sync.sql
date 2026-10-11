@@ -51,7 +51,7 @@ before update on public.memory_perspectives
 for each row execute function public.set_memory_perspective_updated_at();
 
 revoke all on public.memory_perspectives from anon;
-grant select, insert, update on public.memory_perspectives to authenticated;
+grant select, insert, update, delete on public.memory_perspectives to authenticated;
 alter table public.memory_perspectives enable row level security;
 
 drop policy if exists "Story members read memories" on public.memory_perspectives;
@@ -77,6 +77,11 @@ with check (
   and author = public.story_member_role()
   and author_id = auth.uid()
 );
+
+drop policy if exists "Story members delete memories" on public.memory_perspectives;
+create policy "Story members delete memories"
+on public.memory_perspectives for delete to authenticated
+using (public.is_story_member());
 
 do $$
 begin

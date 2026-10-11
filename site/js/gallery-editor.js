@@ -21,6 +21,8 @@ window.initGalleryEditor = function (stories, gallery, baseFolders) {
   var manageActions = document.getElementById('gallery-manage-actions');
   var removePhotoButton = document.getElementById('detail-remove-photo');
   var removeMemoryButton = document.getElementById('detail-delete-memory');
+  var purgeMemoryButton = document.getElementById('detail-purge-memory');
+  var dangerGroup = document.getElementById('gallery-editor-danger-group');
   var activeStory = null;
   var activePhoto = null;
   var editingStory = null;
@@ -137,21 +139,74 @@ window.initGalleryEditor = function (stories, gallery, baseFolders) {
     heading.textContent = '已移出或待补照片的回忆';
     hiddenEntries.appendChild(heading);
     rows.forEach(function (entry) {
+      var item = document.createElement('div');
+      item.className = 'gallery-hidden-item';
+
+      var info = document.createElement('span');
+      info.className = 'gallery-hidden-info';
+      var stateText = entry.hidden ? '已移出' : '待补照片';
+      info.textContent = (entry.memory_date || entry.folder) + ' · ' + entry.title + ' (' + stateText + ')';
+      info.title = info.textContent;
+      item.appendChild(info);
+
+      var actions = document.createElement('div');
+      actions.className = 'gallery-hidden-actions';
+
       if (entry.hidden) {
-        hiddenEntries.appendChild(makeRestoreButton(
-          '恢复 ' + entry.folder + ' · ' + entry.title,
-          function () { return sync.saveGalleryEntry({ folder: entry.folder, title: entry.title, body: entry.body, hidden: false, author: entry.author }); }
+        actions.appendChild(makeRestoreButton(
+          '恢复',
+          function () {
+            return sync.saveGalleryEntry({
+              folder: entry.folder,
+              title: entry.title,
+              body: entry.body,
+              hidden: false,
+              author: entry.author,
+              memory_date: entry.memory_date
+            });
+          }
         ));
       } else {
         var button = document.createElement('button');
         button.className = 'gallery-restore';
         button.type = 'button';
-        button.textContent = '继续添加照片 ' + entry.folder + ' · ' + entry.title;
+        button.textContent = '补传照片';
         button.addEventListener('click', function () {
           openEditor({ event: { folder: entry.folder, title: entry.title, text: entry.body, author: entry.author, memoryDate: entry.memory_date }, photos: [] });
         });
-        hiddenEntries.appendChild(button);
+        actions.appendChild(button);
       }
+
+      if (!baseFolders.has(entry.folder)) {
+        var purgeButton = document.createElement('button');
+        purgeButton.className = 'gallery-purge';
+        purgeButton.type = 'button';
+        purgeButton.textContent = '彻底删除';
+        purgeButton.addEventListener('click', async function () {
+          if (busy) return;
+          if (!confirm('确定彻底删除回忆【' + entry.title + '】吗？\n所有照片和文字将被永久删除，不可恢复。')) return;
+          busy = true;
+          purgeButton.disabled = true;
+          status.textContent = '正在彻底删除…';
+          try {
+            await sync.purgeGalleryMemory(entry.folder);
+            location.reload();
+          } catch (error) {
+            fail(error);
+            purgeButton.disabled = false;
+            busy = false;
+          }
+        });
+        actions.appendChild(purgeButton);
+      } else {
+        var baseTag = document.createElement('span');
+        baseTag.className = 'gallery-base-tag';
+        baseTag.textContent = '初始回忆';
+        actions.appendChild(baseTag);
+      }
+
+      item.appendChild(actions);
+      hiddenEntries.appendChild(item);
     });
   }
   function openEditor(story) {
@@ -161,16 +216,25 @@ window.initGalleryEditor = function (stories, gallery, baseFolders) {
     form.reset();
     clearQueuedPhotos();
     status.textContent = '';
-    removeMemoryButton.hidden = !story || story !== activeStory;
+    var isEditingActive = Boolean(story && story === activeStory);
+    var isBaseStory = Boolean(story && baseFolders.has(story.event.folder));
+    removeMemoryButton.hidden = !isEditingActive;
     removeMemoryButton.disabled = false;
+    if (purgeMemoryButton) {
+      purgeMemoryButton.hidden = !isEditingActive || isBaseStory;
+      purgeMemoryButton.disabled = false;
+    }
+    if (dangerGroup) {
+      dangerGroup.hidden = !isEditingActive;
+    }
     title.textContent = story ? '编辑回忆' : '添加回忆';
     dateInput.disabled = false;
     dateInput.value = story ? story.event.memoryDate || dateFromFolder(story.event.folder) : new Date().toLocaleDateString('sv-SE');
     nameInput.value = story ? story.event.title : '';
     bodyInput.closest('label').hidden = false;
-    originalPerspectiveBody = story === activeStory ? window.storyMemoryPerspective.getBody(sync.getRole()) :
+    originalPerspectiveBody = isEditingActive ? window.storyMemoryPerspective.getBody(sync.getRole()) :
       story && story.event.author === sync.getRole() ? story.event.text || '' : '';
-    bodyInput.value = story === activeStory ? window.storyMemoryPerspective.getDraft(sync.getRole()) : originalPerspectiveBody;
+    bodyInput.value = isEditingActive ? window.storyMemoryPerspective.getDraft(sync.getRole()) : originalPerspectiveBody;
     fileHint.textContent = story
       ? '可一次选择多张，选后逐张预览。红色照片无法上传，请移除；支持 JPG、PNG、WebP，每张不超过 10 MB。'
       : '新回忆至少添加一张照片。可一次选择多张，选后逐张预览；红色照片无法上传，请移除。';
@@ -299,6 +363,32 @@ window.initGalleryEditor = function (stories, gallery, baseFolders) {
       removeMemoryButton.disabled = false;
     }
   });
+
+  if (purgeMemoryButton) {
+    purgeMemoryButton.addEventListener('click', async function () {
+      if (!canEditStory(activeStory) || busy) return;
+      var story = activeStory;
+      if (baseFolders.has(story.event.folder)) {
+        alert('初始回忆无法彻底删除，可选择移出展示。');
+        return;
+      }
+      if (!confirm('确定彻底删除回忆【' + story.event.title + '】吗？\n该回忆包含的所有照片和文字都将被永久删除，不可恢复。')) return;
+      busy = true;
+      purgeMemoryButton.disabled = true;
+      removeMemoryButton.disabled = true;
+      status.textContent = '正在彻底删除回忆…';
+      try {
+        await sync.purgeGalleryMemory(story.event.folder);
+        location.reload();
+      } catch (error) {
+        alert('彻底删除失败：' + (error.message || String(error)));
+        busy = false;
+        purgeMemoryButton.disabled = false;
+        removeMemoryButton.disabled = false;
+        status.textContent = '';
+      }
+    });
+  }
 
   window.storyGalleryEditor = {
     editStory: function () { openEditor(activeStory); },
