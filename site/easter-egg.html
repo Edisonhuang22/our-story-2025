@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>我们的信箱 · 大大布将军与小小二下士</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🥚</text></svg>">
-  <link rel="stylesheet" href="css/style.css?v=20260924-2">
-  <link rel="stylesheet" href="css/mailbox.css?v=20261012-1">
+  <link rel="stylesheet" href="css/style.css?v=20261014-1">
+  <link rel="stylesheet" href="css/mailbox.css?v=20261014-1">
   <link rel="preload" as="image" href="img/gate/girl.png" type="image/png">
   <link rel="preload" as="image" href="img/gate/boy.png" type="image/png">
   <style>
@@ -131,7 +131,16 @@
       <p class="egg-sub">有些话，写下来，留着慢慢读。</p>
     </section>
 
-    <section id="mailbox-list" aria-labelledby="mailbox-list-title">
+    <section class="mailbox-locked" id="mailbox-locked">
+      <div class="locked-card">
+        <span class="locked-icon" aria-hidden="true">💌</span>
+        <h2>信箱已上锁</h2>
+        <p>这里收录着大大布与小小二写给彼此的信件与纸上字迹。<br>请登录账号解锁信箱。</p>
+        <button class="pill-btn locked-login-btn" type="button" id="mailbox-locked-login">登录查看信箱</button>
+      </div>
+    </section>
+
+    <section id="mailbox-list" aria-labelledby="mailbox-list-title" hidden>
       <div class="mailbox-toolbar">
         <div><h2 id="mailbox-list-title" tabindex="-1">收好的信</h2><p id="letter-count"></p></div>
         <button class="small-btn" id="write-letter" type="button">写一封信 ↗</button>
@@ -198,9 +207,9 @@
 
   <script src="js/gate.js?v=20261003-4"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="js/sync.js?v=20261012-1"></script>
+  <script src="js/sync.js?v=20261014-1"></script>
   <dialog id="photo-viewer"><div class="photo-viewer-toolbar"><button id="photo-previous" type="button">上一页</button><span id="photo-page"></span><button id="photo-next" type="button">下一页</button><button id="photo-zoom" type="button">查看原尺寸</button><button id="photo-close" type="button">关闭 ×</button></div><div class="photo-viewer-scroll"><img id="photo-full" alt="实体信件照片"></div></dialog>
-  <script src="js/mailbox.js?v=20261012-1"></script>
+  <script src="js/mailbox.js?v=20261014-1"></script>
   <script>
     document.body.classList.add('loaded');
 

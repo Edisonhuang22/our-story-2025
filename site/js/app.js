@@ -3,13 +3,36 @@
 /* ---------- Hero 载入淡入 ---------- */
 document.body.classList.add('loaded');
 
-document.querySelector('.pill-btn[href="#photos"]').addEventListener('click', function (event) {
-  event.preventDefault();
-  document.getElementById('photos').scrollIntoView({
-    behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth',
-    block: 'start'
+var heroMemoryBtn = document.getElementById('hero-memory-btn') || document.querySelector('.pill-btn[href="#photos"]');
+if (heroMemoryBtn) {
+  heroMemoryBtn.addEventListener('click', function (event) {
+    event.preventDefault();
+    if (!window.storySync || !window.storySync.getRole()) {
+      window.storySync && window.storySync.openAuth();
+      return;
+    }
+    document.getElementById('photos').scrollIntoView({
+      behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth',
+      block: 'start'
+    });
   });
-});
+}
+
+var heroPortraitEl = document.getElementById('hero-portrait');
+if (heroPortraitEl) {
+  heroPortraitEl.addEventListener('click', function () {
+    if (!window.storySync || !window.storySync.getRole()) {
+      window.storySync && window.storySync.openAuth();
+    }
+  });
+}
+
+var memoryLockedLoginBtn = document.getElementById('memory-locked-login');
+if (memoryLockedLoginBtn) {
+  memoryLockedLoginBtn.addEventListener('click', function () {
+    window.storySync && window.storySync.openAuth();
+  });
+}
 
 /* ---------- 固定合照的轻微倾斜 ---------- */
 (function initHeroPortraitTilt() {
@@ -175,12 +198,50 @@ Promise.all([
   initMemoryViews(stories);
   if (!gallery.error) window.initGalleryEditor(stories, gallery, baseFolders);
   var textLoadId = 0;
-  window.storySync.onAuthChange(async function () {
+  var memoryLocked = document.getElementById('memory-locked');
+  var galleryToolbar = document.getElementById('gallery-toolbar');
+  var orbitPanel = document.getElementById('orbit-panel');
+  var timelinePanel = document.getElementById('timeline-panel');
+  var linkedMemory = new URLSearchParams(location.search).get('memory');
+
+  function updateGalleryAuthState(role) {
+    if (heroMemoryBtn) {
+      heroMemoryBtn.innerHTML = role ? '打开我们的回忆 <span aria-hidden="true">↓</span>' : '登录查看回忆 <span aria-hidden="true">🔒</span>';
+    }
+    if (memoryLocked) memoryLocked.hidden = Boolean(role);
+    if (galleryToolbar) galleryToolbar.hidden = !role;
+    if (!role) {
+      if (orbitPanel) orbitPanel.hidden = true;
+      if (timelinePanel) timelinePanel.hidden = true;
+      if (window.closeMemoryModal) window.closeMemoryModal();
+      var editorDialog = document.getElementById('gallery-editor');
+      if (editorDialog && editorDialog.open) editorDialog.close();
+    } else {
+      if (memoryVisit.view === 'timeline') {
+        if (timelinePanel) timelinePanel.hidden = false;
+        if (orbitPanel) orbitPanel.hidden = true;
+      } else {
+        if (orbitPanel) orbitPanel.hidden = false;
+        if (timelinePanel) timelinePanel.hidden = true;
+      }
+      if (linkedMemory) {
+        var linkedIndex = stories.findIndex(function (story) { return story.event.folder === linkedMemory; });
+        if (linkedIndex >= 0) {
+          document.getElementById('photos').scrollIntoView();
+          openMemory(linkedIndex, 0, orbitEl);
+          linkedMemory = null;
+        }
+      }
+    }
+  }
+
+  window.storySync.onAuthChange(async function (_user, role) {
     var requestId = ++textLoadId;
+    updateGalleryAuthState(role);
     stories.forEach(function (story) { story.event.text = ''; });
     gallery.entries && gallery.entries.forEach(function (entry) { delete entry.body; });
     window.dispatchEvent(new Event('story-gallery-text-change'));
-    if (!window.storySync.getRole()) return;
+    if (!role) return;
     try {
       var refreshed = await window.storySync.loadGallery();
       if (requestId !== textLoadId || !window.storySync.getRole()) return;
@@ -192,13 +253,7 @@ Promise.all([
       window.dispatchEvent(new Event('story-gallery-text-change'));
     } catch (error) { galleryError.textContent = '回忆文字读取失败，请刷新重试。'; }
   });
-  var linkedMemory = new URLSearchParams(location.search).get('memory');
-  var linkedIndex = stories.findIndex(function (story) { return story.event.folder === linkedMemory; });
-  if (linkedIndex >= 0) {
-    document.getElementById('photos').scrollIntoView();
-    openMemory(linkedIndex, 0, orbitEl);
-  }
-  if (resumeVisit) {
+  if (resumeVisit && window.storySync.getRole()) {
     requestAnimationFrame(function () {
       window.scrollTo({ top: memoryVisit.scrollY || document.getElementById('photos').offsetTop, behavior: 'instant' });
     });
@@ -266,6 +321,7 @@ function initMemoryViews(stories) {
 
   function renderTimeline() {
     timeline.replaceChildren();
+    if (!window.storySync || !window.storySync.getRole()) return;
     months.forEach(function (month) {
       if (monthSelect.value !== 'all' && monthSelect.value !== month) return;
       var section = document.createElement('section');
@@ -285,9 +341,10 @@ function initMemoryViews(stories) {
     summary.textContent = shown.length + ' 段回忆 · ' + count + ' 张照片';
   }
   function setView(view) {
+    var role = window.storySync && window.storySync.getRole();
     memoryVisit.view = view;
-    orbitPanel.hidden = view !== 'orbit';
-    timelinePanel.hidden = view !== 'timeline';
+    orbitPanel.hidden = !role || view !== 'orbit';
+    timelinePanel.hidden = !role || view !== 'timeline';
     orbitButton.setAttribute('aria-pressed', String(view === 'orbit'));
     timelineButton.setAttribute('aria-pressed', String(view === 'timeline'));
     if (view === 'timeline') renderTimeline();
@@ -764,6 +821,10 @@ function initMemoryModal(stories) {
   }
 
   openMemory = function (storyIndex, photoIndex, source) {
+    if (!window.storySync || !window.storySync.getRole()) {
+      if (window.storySync && window.storySync.openAuth) window.storySync.openAuth();
+      return;
+    }
     currentStory = storyIndex;
     returnFocus = source;
     var story = stories[storyIndex];
@@ -800,6 +861,7 @@ function initMemoryModal(stories) {
       if (returnFocus && document.contains(returnFocus)) returnFocus.focus({ preventScroll: true });
     }, 220);
   }
+  window.closeMemoryModal = closeModal;
 
   closeBtn.addEventListener('click', closeModal);
   modal.querySelector('[data-modal-close]').addEventListener('click', closeModal);

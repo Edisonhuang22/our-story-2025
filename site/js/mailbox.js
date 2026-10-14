@@ -83,11 +83,20 @@
   }
   function recipient(letter) { return letter.sender === '大大布' ? '小小二' : '大大布'; }
   function show(panel, focusId) {
-    [listPanel, composePanel, reader].forEach(function (el) { el.hidden = el !== panel; });
+    var locked = document.getElementById('mailbox-locked');
+    if (!syncing()) {
+      if (locked) locked.hidden = false;
+      [listPanel, composePanel, reader].forEach(function (el) { if (el) el.hidden = true; });
+      return;
+    }
+    if (locked) locked.hidden = true;
+    [listPanel, composePanel, reader].forEach(function (el) { if (el) el.hidden = el !== panel; });
     if (focusId) {
       var target = document.getElementById(focusId);
-      target.focus({ preventScroll: true });
-      target.scrollIntoView({ block: 'start', behavior: 'instant' });
+      if (target) {
+        target.focus({ preventScroll: true });
+        target.scrollIntoView({ block: 'start', behavior: 'instant' });
+      }
     }
   }
   function writeLocalLetters(next) {
@@ -111,6 +120,15 @@
     if (syncButton) syncButton.hidden = Boolean(signedIn);
   }
   function renderList(direction) {
+    var countEl = document.getElementById('letter-count');
+    var posEl = document.getElementById('stack-position');
+    if (!syncing()) {
+      list.replaceChildren();
+      if (countEl) countEl.textContent = '';
+      if (posEl) posEl.textContent = '';
+      resume.hidden = true;
+      return;
+    }
     var outgoing = list.querySelector('.letter-envelope:not(:disabled)');
     var animate = direction && outgoing && !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     var outgoingTransform;
@@ -171,6 +189,10 @@
     return Boolean(letter) && !letter.original && (!syncing() || letter.sender === role() || letter.localOnly);
   }
   function readLetter(letter) {
+    if (!syncing()) {
+      if (storySync()) storySync().openAuth();
+      return;
+    }
     current = letter;
     renderPhotos('reader', letter.photos || []);
     content.replaceChildren();
@@ -201,6 +223,10 @@
     return now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
   }
   function compose(letter) {
+    if (!syncing()) {
+      if (storySync()) storySync().openAuth();
+      return;
+    }
     composePhotos = (letter && letter.photos || []).slice();
     removedComposePhotos = [];
     renderPhotos('compose', composePhotos);
@@ -616,8 +642,11 @@
   }
   function updateMailboxForAuth() {
     setSyncNote();
+    var locked = document.getElementById('mailbox-locked');
     fields.sender.disabled = syncing();
     if (syncing()) {
+      if (locked) locked.hidden = true;
+      listPanel.hidden = false;
       fields.sender.value = role();
       if (migrationRole === role()) return;
       migrationRole = role();
@@ -625,12 +654,18 @@
       renderList();
       loadCloudMailbox(true);
     } else {
+      if (locked) locked.hidden = false;
+      listPanel.hidden = true;
+      composePanel.hidden = true;
+      reader.hidden = true;
       cloudLoadId++;
       migrationRole = null;
       loadLocalMailbox();
       renderList();
     }
   }
+  var lockedLoginBtn = document.getElementById('mailbox-locked-login');
+  if (lockedLoginBtn) lockedLoginBtn.addEventListener('click', function () { storySync().openAuth(); });
   if (syncButton) syncButton.addEventListener('click', function () { storySync().openAuth(); });
   if (storySync()) {
     storySync().onAuthChange(updateMailboxForAuth);

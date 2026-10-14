@@ -8,7 +8,7 @@
   <link rel="preload" as="image" href="img/orbit-atlas.webp" type="image/webp">
   <link rel="preload" as="image" href="img/gate/girl.png" type="image/png">
   <link rel="preload" as="image" href="img/gate/boy.png" type="image/png">
-  <link rel="stylesheet" href="css/style.css?v=20260924-3">
+  <link rel="stylesheet" href="css/style.css?v=20261014-1">
 </head>
 <body>
   <div id="gate" class="gate" role="dialog" aria-modal="true" aria-label="江西会合入口">
@@ -50,13 +50,14 @@
       <h1 class="hero-heading"><span>大大布将军</span><span><small>与</small>小小二下士</span></h1>
       <p class="hero-intro">有些日子，想和你再过一遍。</p>
       <div class="hero-actions">
-        <a class="pill-btn" href="#photos">打开我们的回忆 <span aria-hidden="true">↓</span></a>
+        <a class="pill-btn" id="hero-memory-btn" href="#photos">登录查看回忆 <span aria-hidden="true">🔒</span></a>
       </div>
     </div>
     <div class="hero-portrait-pos">
       <div class="hero-portrait" id="hero-portrait" data-fade="0.6">
         <img src="img/2026-4-21/hero.webp" alt="我们的合照" width="520" height="360" fetchpriority="high" decoding="async">
         <p class="portrait-caption">2026.04.21 <span>漂亮合照</span></p>
+        <div class="hero-portrait-lock" id="hero-portrait-lock"><span class="lock-icon" aria-hidden="true">🔒</span><span>合照登录后解锁</span></div>
       </div>
     </div>
     <div class="hero-bottom">
@@ -71,7 +72,7 @@
       <p>拖动照片球，点开任意一张。靠在一起的照片属于同一段回忆，也会打开双方的记忆。</p>
     </div>
 
-    <div class="gallery-toolbar">
+    <div class="gallery-toolbar" id="gallery-toolbar" hidden>
       <div class="view-switch" role="group" aria-label="回忆浏览方式">
         <button id="view-orbit" type="button" aria-pressed="true" aria-controls="orbit-panel">转转照片球</button>
         <button id="view-timeline" type="button" aria-pressed="false" aria-controls="timeline-panel">按时间查看</button>
@@ -80,7 +81,7 @@
       <p id="gallery-summary" class="gallery-summary" aria-live="polite">正在整理回忆…</p>
     </div>
 
-    <div id="orbit-panel">
+    <div id="orbit-panel" hidden>
     <div class="orbit-shell">
       <div
         class="memory-orbit"
@@ -112,6 +113,15 @@
         <label for="memory-month">月份 <select id="memory-month"><option value="all">全部月份</option></select></label>
       </div>
       <div id="timeline-list" class="timeline-list"></div>
+    </section>
+
+    <section class="memory-locked" id="memory-locked">
+      <div class="locked-card">
+        <span class="locked-icon" aria-hidden="true">🔒</span>
+        <h3>回忆已上锁</h3>
+        <p>这里珍藏着大大布与小小二的每一段回忆和故事照片。<br>请登录账号解锁浏览。</p>
+        <button class="pill-btn locked-login-btn" type="button" id="memory-locked-login">登录查看回忆</button>
+      </div>
     </section>
     <p class="gallery-error" id="gallery-error" role="status"></p>
 
@@ -194,8 +204,8 @@
 
   <script src="js/gate.js?v=20261003-4"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="js/sync.js?v=20261012-1"></script>
-  <script src="js/gallery-editor.js?v=20261012-1"></script>
-  <script src="js/app.js?v=20261005-1"></script>
+  <script src="js/sync.js?v=20261014-1"></script>
+  <script src="js/gallery-editor.js?v=20261014-1"></script>
+  <script src="js/app.js?v=20261014-1"></script>
 </body>
 </html>

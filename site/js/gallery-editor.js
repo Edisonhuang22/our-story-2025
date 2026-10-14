@@ -190,7 +190,11 @@ window.initGalleryEditor = function (stories, gallery, baseFolders) {
           status.textContent = '正在彻底删除…';
           try {
             await sync.purgeGalleryMemory(entry.folder);
-            location.reload();
+            gallery.entries = gallery.entries.filter(function (e) { return e.folder !== entry.folder; });
+            gallery.photos = gallery.photos.filter(function (p) { return p.folder !== entry.folder; });
+            showHiddenEntries();
+            status.textContent = '已彻底删除回忆【' + entry.title + '】';
+            busy = false;
           } catch (error) {
             fail(error);
             purgeButton.disabled = false;

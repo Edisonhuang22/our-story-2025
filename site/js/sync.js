@@ -53,6 +53,8 @@
   function setUser(user) {
     currentUser = user || null;
     currentRole = user && allowed[(user.email || '').toLowerCase()] || null;
+    document.body.classList.toggle('is-logged-in', Boolean(currentRole));
+    document.documentElement.classList.toggle('is-logged-in', Boolean(currentRole));
     updateButton();
     notify();
   }

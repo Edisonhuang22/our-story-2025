@@ -282,7 +282,15 @@ body.gate-open { overflow: hidden; }
   transform: rotate(3deg);
   transition: transform 0.3s ease-out;
 }
-.hero-portrait { padding: 12px 12px 0; background: #fffdfa; border-radius: 20px; box-shadow: 0 22px 65px rgba(82, 68, 122, 0.14); border: 1px solid #fff; }
+.hero-portrait {
+  position: relative;
+  overflow: hidden;
+  padding: 12px 12px 0;
+  background: #fffdfa;
+  border-radius: 20px;
+  box-shadow: 0 22px 65px rgba(82, 68, 122, 0.14);
+  border: 1px solid #fff;
+}
 .hero-portrait img {
   display: block;
   width: 100%;
@@ -290,9 +298,93 @@ body.gate-open { overflow: hidden; }
   aspect-ratio: 13 / 9;
   object-fit: cover;
   border-radius: 12px;
+  transition: filter 0.4s ease, transform 0.4s ease;
+}
+body:not(.is-logged-in) .hero-portrait {
+  cursor: pointer;
+}
+body:not(.is-logged-in) .hero-portrait img {
+  filter: blur(20px);
+  transform: scale(1.08);
+}
+.hero-portrait-lock {
+  position: absolute;
+  top: calc(50% - 15px);
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0.5rem 1.1rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid rgba(120, 105, 182, 0.3);
+  box-shadow: 0 8px 24px rgba(82, 68, 122, 0.18);
+  backdrop-filter: blur(6px);
+  color: var(--accent-deep);
+  font-size: 0.82rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+  pointer-events: none;
+  transition: transform 0.2s ease, opacity 0.2s ease;
+}
+body.is-logged-in .hero-portrait-lock {
+  display: none !important;
+}
+body:not(.is-logged-in) .hero-portrait:hover .hero-portrait-lock {
+  transform: translate(-50%, -50%) scale(1.04);
 }
 .portrait-caption { display: flex; justify-content: space-between; align-items: center; padding: 18px 7px; color: var(--accent-deep); font-size: 0.75rem; letter-spacing: 0.08em; }
 .portrait-caption span { color: var(--ink-soft); }
+
+/* ---------- 登录锁定卡片 ---------- */
+.memory-locked, .mailbox-locked {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: clamp(2.5rem, 6vw, 4.5rem) 1rem;
+  width: 100%;
+}
+.locked-card {
+  width: min(520px, 100%);
+  padding: clamp(2.2rem, 5vw, 3.2rem) clamp(1.4rem, 4vw, 2.4rem);
+  text-align: center;
+  background: rgba(255, 255, 255, 0.88);
+  border: 1.5px solid var(--border);
+  border-radius: 28px;
+  box-shadow: 0 20px 60px rgba(91, 75, 154, 0.12);
+  backdrop-filter: blur(12px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+}
+.locked-icon {
+  font-size: 2.8rem;
+  line-height: 1;
+  margin-bottom: 4px;
+  filter: drop-shadow(0 4px 10px rgba(120, 105, 182, 0.25));
+}
+.locked-card h2, .locked-card h3 {
+  font-size: clamp(1.35rem, 4vw, 1.7rem);
+  font-weight: 800;
+  color: var(--accent-deep);
+  letter-spacing: 0.04em;
+}
+.locked-card p {
+  color: var(--ink-soft);
+  font-size: 0.92rem;
+  line-height: 1.8;
+  max-width: 400px;
+}
+.locked-login-btn {
+  margin-top: 10px;
+  cursor: pointer;
+  border: none;
+  font-size: 0.95rem;
+  padding: 0.75rem 2rem;
+}
 
 .hero-bottom {
   grid-column: 1 / -1;
