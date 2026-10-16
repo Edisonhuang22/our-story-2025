@@ -136,14 +136,6 @@ function setAtlasPosition(el, index) {
 
 var stories = [];
 var gallery = { entries: [], photos: [] };
-var baseFolders = new Set([
-  '2025.11.19', '2025.12.1', '2025.12.4', '2025.12.6', '2025.12.12',
-  '2025.12.13', '2025.12.16', '2025.12.21', '2025.12.22', '2025.12.24',
-  '2025.12.25', '2025.12.28', '2025.12.30', '2025.12.31', '2026.1.6',
-  '2026.1.7', '2026.1.11', '2026.1.12', '2026.1.17', '2026.1.25',
-  '2026.3.3', '2026.3.4', '2026.3.21', '2026.3.24', '2026.4.3',
-  '2026.4.6', '2026.4.19', '2026.4.21', '2026.5.1'
-]);
 var textLoadId = 0;
 var memoryLocked = document.getElementById('memory-locked');
 var galleryToolbar = document.getElementById('gallery-toolbar');
@@ -166,26 +158,10 @@ function buildStoriesFromGallery(data) {
     var src = row.storage_path ? window.storySync.galleryPhotoUrl(row.storage_path) : (row.static_src || '');
     var thumb = row.thumb_path ? window.storySync.galleryPhotoUrl(row.thumb_path) : src;
 
-    // 为 88 张历史照片建立本地静态离线回退（本地 img/ 与 thumbs/）
-    var fallbackSrc = '';
-    var fallbackThumb = '';
-    if (row.storage_path && row.storage_path.indexOf('/legacy/') !== -1) {
-      var match = row.storage_path.match(/\/legacy\/([^/]+)\/(\d+)\.webp$/);
-      if (match) {
-        fallbackSrc = 'img/' + match[1] + '/' + match[2] + '.webp';
-        fallbackThumb = 'thumbs/' + match[1] + '/' + match[2] + '.webp';
-      }
-    } else if (row.static_src) {
-      fallbackSrc = row.static_src;
-      fallbackThumb = row.static_src;
-    }
-
     photosByFolder[row.folder].push({
       src: src,
       thumb: thumb,
       card: thumb,
-      fallbackSrc: fallbackSrc,
-      fallbackThumb: fallbackThumb,
       uploadId: row.id,
       storagePath: row.storage_path,
       thumbPath: row.thumb_path,
@@ -237,7 +213,7 @@ function updateGalleryAuthState(role) {
   if (heroImg) {
     if (role) {
       if (!heroImg.src || heroImg.src.indexOf('hero.webp') === -1) {
-        heroImg.src = heroImg.dataset.src || 'img/2026-4-21/hero.webp';
+        heroImg.src = heroImg.dataset.src || 'img/hero.webp';
       }
     } else {
       heroImg.removeAttribute('src');
@@ -285,7 +261,7 @@ window.storySync.onAuthChange(async function (_user, role) {
     renderOrbit(stories);
     initMemoryViews(stories);
     initMemoryModal(stories);
-    if (window.initGalleryEditor) window.initGalleryEditor(stories, gallery, baseFolders);
+    if (window.initGalleryEditor) window.initGalleryEditor(stories, gallery);
     window.dispatchEvent(new Event('story-gallery-text-change'));
     if (linkedMemory) {
       var linkedIndex = stories.findIndex(function (story) { return story.event.folder === linkedMemory; });
@@ -339,11 +315,9 @@ function initMemoryViews(stories) {
     image.height = 350;
     image.loading = 'lazy';
     image.decoding = 'async';
-    if (photo.fallbackThumb) {
-      image.onerror = function () {
-        if (image.src !== photo.fallbackThumb) image.src = photo.fallbackThumb;
-      };
-    }
+    image.onerror = function () {
+      if (photo.src && image.src !== photo.src) image.src = photo.src;
+    };
     button.appendChild(image);
     var copy = makeText('span', 'memory-card-copy', '');
     copy.appendChild(makeText('span', 'memory-card-date', story.event.date));
@@ -839,10 +813,6 @@ function initMemoryModal(_stories) {
     };
     image.onerror = function () {
       if (requestId !== photoRequestId) return;
-      if (photo.fallbackSrc && src !== photo.fallbackSrc) {
-        loadPhoto(photo, photo.fallbackSrc, showingOriginal);
-        return;
-      }
       if (!showingOriginal && src !== photo.src) {
         originalBtn.hidden = true;
         loadPhoto(photo, photo.src, true);
