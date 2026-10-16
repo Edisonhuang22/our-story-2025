@@ -197,7 +197,26 @@
     renderPhotos('reader', letter.photos || []);
     content.replaceChildren();
     if (letter.original) {
-      content.appendChild(document.getElementById('original-letter').content.cloneNode(true));
+      var article = node('article', 'essay', '');
+      var header = node('header', 'essay-head', '');
+      header.appendChild(node('p', 'essay-date', (letter.date || '2026.08.19').replace(/-/g, '.')));
+      header.appendChild(node('h2', 'essay-title', letter.title || '小作文'));
+      article.appendChild(header);
+      var bodyEl = node('div', 'essay-body', '');
+      if (letter.body) {
+        var paragraphs = letter.body.replace(/\r\n/g, '\n').trim().split(/\n\s*\n/);
+        paragraphs.forEach(function (p) {
+          var trimmed = p.trim();
+          if (!trimmed) return;
+          var pClass = 'essay-p';
+          if (trimmed.startsWith('——') || trimmed.startsWith('--')) pClass += ' essay-sign';
+          bodyEl.appendChild(node('p', pClass, trimmed));
+        });
+      } else {
+        bodyEl.appendChild(node('p', 'essay-p', '正在从云端读取信件内容…'));
+      }
+      article.appendChild(bodyEl);
+      content.appendChild(article);
     } else {
       var article = node('article', 'essay', '');
       var header = node('header', 'essay-head', '');
@@ -589,9 +608,20 @@
       if (!photosByLetter[item.letter_id]) photosByLetter[item.letter_id] = [];
       photosByLetter[item.letter_id].push(item);
     });
-    letters = data.letters.map(function (letter) {
+    letters = (data.letters || []).filter(function (letter) {
+      return !letter.is_original && letter.id !== originalId;
+    }).map(function (letter) {
       return Object.assign({}, letter, { photos: photosByLetter[letter.id] || [] });
     });
+    var remoteOriginal = (data.letters || []).find(function (letter) {
+      return letter.is_original || letter.id === originalId;
+    });
+    if (remoteOriginal && remoteOriginal.body) {
+      original.body = remoteOriginal.body;
+      if (remoteOriginal.date) original.date = remoteOriginal.date.replace(/-/g, '.');
+      if (remoteOriginal.title) original.title = remoteOriginal.title;
+      if (remoteOriginal.sender) original.sender = remoteOriginal.sender;
+    }
     var remoteIds = new Set(letters.map(function (letter) { return letter.id; }));
     letters = letters.concat(localLetters.filter(function (letter) { return !remoteIds.has(letter.id); }).map(function (letter) {
       return Object.assign(cloneLetter(letter), { localOnly: true });

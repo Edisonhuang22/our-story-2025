@@ -153,10 +153,11 @@ Promise.all([
     return { event: event, photos: photos };
   });
   var gallery = res[2];
-  if (!gallery.error) {
+  function applyGalleryData(data) {
+    if (!data || data.error) return;
     var byFolder = {};
     stories.forEach(function (story) { byFolder[story.event.folder] = story; });
-    gallery.entries.forEach(function (entry) {
+    (data.entries || []).forEach(function (entry) {
       var story = byFolder[entry.folder];
       if (!story) {
         var parts = entry.folder.split('.');
@@ -174,16 +175,27 @@ Promise.all([
       }
       story.hidden = entry.hidden;
     });
-    gallery.photos.forEach(function (row) {
+    (data.photos || []).forEach(function (row) {
       var story = byFolder[row.folder];
       if (!story) return;
       if (row.static_src) {
         if (row.hidden) story.photos = story.photos.filter(function (photo) { return photo.src !== row.static_src; });
       } else if (!row.hidden && row.storage_path) {
         var url = window.storySync.galleryPhotoUrl(row.storage_path);
-        story.photos.push({ src: url, thumb: url, card: url, uploadId: row.id, storagePath: row.storage_path });
+        var existing = story.photos.find(function (photo) { return photo.uploadId === row.id || photo.storagePath === row.storage_path; });
+        if (!existing) {
+          story.photos.push({ src: url, thumb: url, card: url, uploadId: row.id, storagePath: row.storage_path });
+        } else {
+          existing.src = url;
+          existing.thumb = url;
+          existing.card = url;
+        }
       }
     });
+  }
+
+  if (!gallery.error) {
+    applyGalleryData(gallery);
   } else {
     galleryError.textContent = '在线回忆暂不可用：' + (gallery.error.message || '读取失败') + '。请刷新页面重试。';
   }
@@ -245,11 +257,8 @@ Promise.all([
     try {
       var refreshed = await window.storySync.loadGallery();
       if (requestId !== textLoadId || !window.storySync.getRole()) return;
-      stories.forEach(function (story) {
-        var entry = refreshed.entries.find(function (item) { return item.folder === story.event.folder; });
-        story.event.text = entry ? entry.body || '' : '';
-      });
-      gallery.entries = refreshed.entries;
+      applyGalleryData(refreshed);
+      gallery = refreshed;
       window.dispatchEvent(new Event('story-gallery-text-change'));
     } catch (error) { galleryError.textContent = '回忆文字读取失败，请刷新重试。'; }
   });

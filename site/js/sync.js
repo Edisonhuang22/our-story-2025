@@ -112,18 +112,36 @@
       .subscribe();
   }
 
+  var signedUrls = new Map();
+
   async function loadGallery() {
     await ready;
-    var columns = 'folder,title,hidden,author,memory_date' + (currentRole ? ',body' : '');
+    if (!currentRole) return { entries: [], photos: [] };
+    var columns = 'folder,title,hidden,author,memory_date,body';
     var results = await Promise.all([
       client.from('story_gallery_entries').select(columns),
       client.from('story_gallery_photos').select('id,folder,static_src,storage_path,hidden,created_at').order('created_at', { ascending: true })
     ]);
     if (results[0].error) throw new Error('回忆记录 HTTP ' + results[0].status + '：' + results[0].error.message);
     if (results[1].error) throw new Error('照片记录 HTTP ' + results[1].status + '：' + results[1].error.message);
-    return { entries: results[0].data || [], photos: results[1].data || [] };
+    var photos = results[1].data || [];
+    var storagePaths = photos.map(function (p) { return p.storage_path; }).filter(Boolean);
+    if (storagePaths.length > 0) {
+      try {
+        var signed = await client.storage.from('story-gallery').createSignedUrls(storagePaths, 60 * 60 * 24);
+        if (signed && signed.data) {
+          signed.data.forEach(function (item) {
+            if (item.signedUrl) signedUrls.set(item.path, item.signedUrl);
+          });
+        }
+      } catch (signError) {
+        console.warn('获取照片签名链接提示：', signError);
+      }
+    }
+    return { entries: results[0].data || [], photos: photos };
   }
   function galleryPhotoUrl(path) {
+    if (signedUrls.has(path)) return signedUrls.get(path);
     return client.storage.from('story-gallery').getPublicUrl(path).data.publicUrl;
   }
   async function saveGalleryEntry(entry) {
@@ -143,6 +161,12 @@
     var path = currentUser.id + '/' + crypto.randomUUID() + '.' + extension;
     var uploaded = await client.storage.from('story-gallery').upload(path, file, { contentType: file.type, upsert: false });
     if (uploaded.error) throw uploaded.error;
+    try {
+      var signRes = await client.storage.from('story-gallery').createSignedUrl(path, 60 * 60 * 24);
+      if (signRes && signRes.data && signRes.data.signedUrl) {
+        signedUrls.set(path, signRes.data.signedUrl);
+      }
+    } catch (signError) {}
     var row = await client.from('story_gallery_photos').insert({ folder: folder, storage_path: path }).select('id,folder,storage_path').single();
     if (row.error) {
       await client.storage.from('story-gallery').remove([path]);
@@ -196,7 +220,7 @@
   async function loadMailbox() {
     if (!currentRole) return { letters: [], photos: [] };
     var results = await Promise.all([
-      client.from('story_letters').select('id,sender,date,title,body,memory,created_at,updated_at').eq('is_original', false),
+      client.from('story_letters').select('id,sender,date,title,body,memory,is_original,created_at,updated_at'),
       client.from('story_letter_photos').select('id,letter_id,name,storage_path,sort_order,author,created_at').order('sort_order', { ascending: true }).order('created_at', { ascending: true })
     ]);
     if (results[0].error) throw results[0].error;
