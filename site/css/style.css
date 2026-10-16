@@ -848,9 +848,10 @@ body.modal-open { overflow: hidden; }
   height: 100%;
   object-fit: contain;
   opacity: 1;
-  transition: opacity 0.16s ease;
+  filter: none;
+  transition: opacity 0.22s ease, filter 0.22s ease;
 }
-#detail-image.is-loading { opacity: 0.38; }
+#detail-image.is-loading { opacity: 0.92; filter: blur(3px); }
 .detail-original {
   position: absolute;
   z-index: 2;

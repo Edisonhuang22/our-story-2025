@@ -519,7 +519,8 @@ function renderOrbit(stories) {
         node.el.style.visibility = visible ? 'visible' : 'hidden';
       }
       if (visible) {
-        if (!node.loaded && node.thumbUrl) {
+        // 优先加载面向视角的照片（z2 > -0.15），显著减少首屏并发网络拥堵；其余节点在闲时或旋转到正面时顺畅载入
+        if (!node.loaded && node.thumbUrl && (z2 > -0.15 || orbitIdleLoaded)) {
           node.loaded = true;
           node.el.style.backgroundImage = 'url("' + node.thumbUrl.replace(/"/g, '%22') + '")';
         }
@@ -576,6 +577,24 @@ function renderOrbit(stories) {
     lastFrame = performance.now();
     frame = requestAnimationFrame(animate);
   }
+
+  var orbitIdleLoaded = false;
+  function idleLoadOrbitPhotos() {
+    if (orbitIdleLoaded || !nodes.length) return;
+    var unloaded = nodes.filter(function (n) { return !n.loaded && n.thumbUrl; });
+    if (!unloaded.length) { orbitIdleLoaded = true; return; }
+    var chunk = unloaded.slice(0, 4);
+    chunk.forEach(function (n) {
+      n.loaded = true;
+      n.el.style.backgroundImage = 'url("' + n.thumbUrl.replace(/"/g, '%22') + '")';
+    });
+    if (window.requestIdleCallback) {
+      window.requestIdleCallback(idleLoadOrbitPhotos, { timeout: 1000 });
+    } else {
+      setTimeout(idleLoadOrbitPhotos, 80);
+    }
+  }
+  setTimeout(idleLoadOrbitPhotos, 500);
 
   new IntersectionObserver(function (entries) {
     inView = entries[0].isIntersecting;
@@ -788,51 +807,82 @@ function initMemoryModal(_stories) {
     if (payload.new && payload.new.folder === stories[currentStory].event.folder) loadPerspectives();
   });
 
-  function previewSource(photo) {
-    return photo.card || photo.src;
+  function preloadPhoto(photo) {
+    if (!photo) return;
+    var thumb = photo.thumb || photo.src;
+    if (thumb && !previewRequests[thumb]) {
+      var p1 = new Image();
+      previewRequests[thumb] = p1;
+      p1.decoding = 'async';
+      p1.src = thumb;
+    }
+    var full = photo.src;
+    if (full && !previewRequests[full]) {
+      var p2 = new Image();
+      previewRequests[full] = p2;
+      p2.decoding = 'async';
+      p2.src = full;
+    }
   }
-  function preloadPreview(photo) {
-    var src = previewSource(photo);
-    if (!src || previewRequests[src]) return;
-    var preload = new Image();
-    previewRequests[src] = preload;
-    preload.decoding = 'async';
-    preload.src = src;
-  }
-  function loadPhoto(photo, src, showingOriginal) {
+
+  function loadPhoto(photo, instantThumb, fullSrc) {
     var requestId = ++photoRequestId;
     var story = stories[currentStory];
-    image.classList.add('is-loading');
-    image.onload = function () {
-      if (requestId !== photoRequestId) return;
-      image.classList.remove('is-loading');
-      if (showingOriginal) {
-        originalBtn.textContent = '已显示原图';
-        originalBtn.disabled = true;
-      }
-    };
-    image.onerror = function () {
-      if (requestId !== photoRequestId) return;
-      if (!showingOriginal && src !== photo.src) {
-        originalBtn.hidden = true;
-        loadPhoto(photo, photo.src, true);
-      }
-    };
-    image.src = src;
+
     image.alt = story.event.title + '，第' + (currentPhoto + 1) + '张照片';
     if (photo.w && photo.h) { image.width = photo.w; image.height = photo.h; }
     else { image.removeAttribute('width'); image.removeAttribute('height'); }
+
+    // 如果没有独立大图，直接以缩略图呈现
+    if (!fullSrc || fullSrc === instantThumb) {
+      image.src = instantThumb;
+      image.classList.remove('is-loading');
+      originalBtn.textContent = '已显示原图';
+      originalBtn.disabled = true;
+      return;
+    }
+
+    // 若大图已在浏览器内存/预载缓存中，直接展示高清
+    if (previewRequests[fullSrc] && previewRequests[fullSrc].complete && previewRequests[fullSrc].naturalWidth) {
+      image.src = fullSrc;
+      image.classList.remove('is-loading');
+      originalBtn.textContent = '已显示高清原图';
+      originalBtn.disabled = true;
+      return;
+    }
+
+    // 渐进式呈现：先以极速缩略图作为即时底图（0ms 白屏等待），后台静默替换为全屏超清原图
+    image.src = instantThumb;
+    image.classList.add('is-loading');
+    originalBtn.disabled = false;
+    originalBtn.textContent = '高清载入中…';
+
+    var fullImg = new Image();
+    fullImg.decoding = 'async';
+    fullImg.onload = function () {
+      if (requestId !== photoRequestId) return;
+      image.src = fullSrc;
+      image.classList.remove('is-loading');
+      originalBtn.textContent = '已显示高清原图';
+      originalBtn.disabled = true;
+    };
+    fullImg.onerror = function () {
+      if (requestId !== photoRequestId) return;
+      image.classList.remove('is-loading');
+      originalBtn.disabled = false;
+      originalBtn.textContent = '原图加载失败，点击重试';
+    };
+    fullImg.src = fullSrc;
   }
+
   function showPhoto(index) {
     var story = stories[currentStory];
     currentPhoto = (index + story.photos.length) % story.photos.length;
     var photo = story.photos[currentPhoto];
     if (window.storyGalleryEditor) window.storyGalleryEditor.showPhoto(photo);
-    var preview = previewSource(photo);
-    originalBtn.hidden = preview === photo.src;
-    originalBtn.disabled = false;
-    originalBtn.textContent = '查看原图';
-    loadPhoto(photo, preview, false);
+    var instantThumb = photo.thumb || photo.src;
+    var fullSrc = photo.src;
+    loadPhoto(photo, instantThumb, fullSrc);
     photoCount.textContent = (currentPhoto + 1) + ' / ' + story.photos.length;
     Array.prototype.forEach.call(thumbs.children, function (thumb, thumbIndex) {
       var selected = thumbIndex === currentPhoto;
@@ -840,8 +890,8 @@ function initMemoryModal(_stories) {
       thumb.setAttribute('aria-current', selected ? 'true' : 'false');
       if (selected) thumb.scrollIntoView({ block: 'nearest', inline: 'center' });
     });
-    preloadPreview(story.photos[(currentPhoto + 1) % story.photos.length]);
-    preloadPreview(story.photos[(currentPhoto - 1 + story.photos.length) % story.photos.length]);
+    preloadPhoto(story.photos[(currentPhoto + 1) % story.photos.length]);
+    preloadPhoto(story.photos[(currentPhoto - 1 + story.photos.length) % story.photos.length]);
   }
 
   function buildThumbs(story) {
@@ -908,20 +958,12 @@ function initMemoryModal(_stories) {
   nextBtn.addEventListener('click', function () { showPhoto(currentPhoto + 1); });
   originalBtn.addEventListener('click', function () {
     var photo = stories[currentStory].photos[currentPhoto];
-    if (!photo || previewSource(photo) === photo.src) return;
-    var requestId = photoRequestId;
-    originalBtn.disabled = true;
-    originalBtn.textContent = '正在加载原图…';
-    var fullImage = new Image();
-    fullImage.onload = function () {
-      if (requestId === photoRequestId && !modal.hidden) loadPhoto(photo, photo.src, true);
-    };
-    fullImage.onerror = function () {
-      if (requestId !== photoRequestId || modal.hidden) return;
-      originalBtn.disabled = false;
-      originalBtn.textContent = '原图加载失败，重试';
-    };
-    fullImage.src = photo.src;
+    if (!photo) return;
+    if (originalBtn.textContent.includes('重试')) {
+      loadPhoto(photo, photo.thumb || photo.src, photo.src);
+    } else if (photo.src) {
+      window.open(photo.src, '_blank');
+    }
   });
 
   modal.addEventListener('keydown', function (e) {

@@ -232,8 +232,8 @@ window.initGalleryEditor = function (stories, gallery) {
       story && story.event.author === sync.getRole() ? story.event.text || '' : '';
     bodyInput.value = isEditingActive ? window.storyMemoryPerspective.getDraft(sync.getRole()) : originalPerspectiveBody;
     fileHint.textContent = story
-      ? '可一次选择多张，选后逐张预览。红色照片无法上传，请移除；支持 JPG、PNG、WebP，每张不超过 10 MB。'
-      : '新回忆至少添加一张照片。可一次选择多张，选后逐张预览；红色照片无法上传，请移除。';
+      ? '可一次选择多张，系统将自动进行视觉无损瘦身压缩；支持 JPG、PNG、WebP，单张最大 50 MB。'
+      : '新回忆至少添加一张照片。系统将自动进行视觉无损瘦身压缩；支持 JPG、PNG、WebP，单张最大 50 MB。';
     hiddenEntries.hidden = Boolean(story);
     hiddenPhotos.hidden = !story;
     if (story) showHiddenPhotos(story.event.folder);
@@ -257,7 +257,7 @@ window.initGalleryEditor = function (stories, gallery) {
       queuedPhotos.push({
         file: file,
         url: supported ? URL.createObjectURL(file) : '',
-        reason: !supported ? '格式不支持' : file.size > 10485760 ? '超过 10 MB' : ''
+        reason: !supported ? '格式不支持' : file.size > 52428800 ? '超过 50 MB' : ''
       });
     });
     filesInput.value = '';
