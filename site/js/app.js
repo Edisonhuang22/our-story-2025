@@ -134,143 +134,179 @@ function setAtlasPosition(el, index) {
   el.style.setProperty('--atlas-y', (Math.floor(index / ORBIT_ATLAS_COLUMNS) / (ORBIT_ATLAS_ROWS - 1) * 100).toFixed(3) + '%');
 }
 
-Promise.all([
-  fetch('data/events.json').then(function (r) { if (!r.ok) throw new Error('文字数据读取失败'); return r.json(); }),
-  fetch('data/photos.json').then(function (r) { if (!r.ok) throw new Error('照片数据读取失败'); return r.json(); }),
-  window.storySync.loadGallery().catch(function (error) { return { error: error }; })
-]).then(function (res) {
-  var photosByFolder = {};
-  res[1].chapters.forEach(function (chapter) {
-    photosByFolder[chapter.folder] = chapter.photos.map(function (photo) {
-      return Object.assign({}, photo, { staticSrc: photo.src });
-    });
-  });
-  var baseFolders = new Set(res[0].map(function (event) { return event.folder; }));
-  var atlasIndex = 0;
-  var stories = res[0].map(function (event) {
-    var photos = photosByFolder[event.folder] || [];
-    photos.forEach(function (photo) { photo.atlasIndex = atlasIndex++; });
-    return { event: event, photos: photos };
-  });
-  var gallery = res[2];
-  function applyGalleryData(data) {
-    if (!data || data.error) return;
-    var byFolder = {};
-    stories.forEach(function (story) { byFolder[story.event.folder] = story; });
-    (data.entries || []).forEach(function (entry) {
-      var story = byFolder[entry.folder];
-      if (!story) {
-        var parts = entry.folder.split('.');
-        story = { event: { folder: entry.folder, date: parts[0] + '年' + parts[1] + '月' + parts[2] + '日' }, photos: [] };
-        stories.push(story);
-        byFolder[entry.folder] = story;
-      }
-      story.event.title = entry.title;
-      story.event.text = window.storySync.getRole() ? entry.body || '' : '';
-      story.event.author = entry.author;
-      story.event.memoryDate = entry.memory_date;
-      if (entry.memory_date) {
-        var dateParts = entry.memory_date.split('-');
-        story.event.date = dateParts[0] + '年' + Number(dateParts[1]) + '月' + Number(dateParts[2]) + '日';
-      }
-      story.hidden = entry.hidden;
-    });
-    (data.photos || []).forEach(function (row) {
-      var story = byFolder[row.folder];
-      if (!story) return;
-      if (row.static_src) {
-        if (row.hidden) story.photos = story.photos.filter(function (photo) { return photo.src !== row.static_src; });
-      } else if (!row.hidden && row.storage_path) {
-        var url = window.storySync.galleryPhotoUrl(row.storage_path);
-        var existing = story.photos.find(function (photo) { return photo.uploadId === row.id || photo.storagePath === row.storage_path; });
-        if (!existing) {
-          story.photos.push({ src: url, thumb: url, card: url, uploadId: row.id, storagePath: row.storage_path });
-        } else {
-          existing.src = url;
-          existing.thumb = url;
-          existing.card = url;
-        }
-      }
-    });
-  }
+var stories = [];
+var gallery = { entries: [], photos: [] };
+var baseFolders = new Set([
+  '2025.11.19', '2025.12.1', '2025.12.4', '2025.12.6', '2025.12.12',
+  '2025.12.13', '2025.12.16', '2025.12.21', '2025.12.22', '2025.12.24',
+  '2025.12.25', '2025.12.28', '2025.12.30', '2025.12.31', '2026.1.6',
+  '2026.1.7', '2026.1.11', '2026.1.12', '2026.1.17', '2026.1.25',
+  '2026.3.3', '2026.3.4', '2026.3.21', '2026.3.24', '2026.4.3',
+  '2026.4.6', '2026.4.19', '2026.4.21', '2026.5.1'
+]);
+var textLoadId = 0;
+var memoryLocked = document.getElementById('memory-locked');
+var galleryToolbar = document.getElementById('gallery-toolbar');
+var orbitPanel = document.getElementById('orbit-panel');
+var timelinePanel = document.getElementById('timeline-panel');
+var linkedMemory = new URLSearchParams(location.search).get('memory');
 
-  if (!gallery.error) {
-    applyGalleryData(gallery);
-  } else {
-    galleryError.textContent = '在线回忆暂不可用：' + (gallery.error.message || '读取失败') + '。请刷新页面重试。';
-  }
-  stories = stories.filter(function (story) { return !story.hidden && story.photos.length; });
-  stories.sort(function (a, b) {
+function buildStoriesFromGallery(data) {
+  if (!data || !data.entries) return [];
+  var photosByFolder = {};
+  var seenPhotoKeys = new Set();
+
+  (data.photos || []).forEach(function (row) {
+    if (row.hidden) return;
+    var photoKey = row.storage_path || (row.folder + ':' + row.static_src) || row.id;
+    if (seenPhotoKeys.has(photoKey)) return;
+    seenPhotoKeys.add(photoKey);
+
+    if (!photosByFolder[row.folder]) photosByFolder[row.folder] = [];
+    var src = row.storage_path ? window.storySync.galleryPhotoUrl(row.storage_path) : (row.static_src || '');
+    var thumb = row.thumb_path ? window.storySync.galleryPhotoUrl(row.thumb_path) : src;
+
+    // 为 88 张历史照片建立本地静态离线回退（本地 img/ 与 thumbs/）
+    var fallbackSrc = '';
+    var fallbackThumb = '';
+    if (row.storage_path && row.storage_path.indexOf('/legacy/') !== -1) {
+      var match = row.storage_path.match(/\/legacy\/([^/]+)\/(\d+)\.webp$/);
+      if (match) {
+        fallbackSrc = 'img/' + match[1] + '/' + match[2] + '.webp';
+        fallbackThumb = 'thumbs/' + match[1] + '/' + match[2] + '.webp';
+      }
+    } else if (row.static_src) {
+      fallbackSrc = row.static_src;
+      fallbackThumb = row.static_src;
+    }
+
+    photosByFolder[row.folder].push({
+      src: src,
+      thumb: thumb,
+      card: thumb,
+      fallbackSrc: fallbackSrc,
+      fallbackThumb: fallbackThumb,
+      uploadId: row.id,
+      storagePath: row.storage_path,
+      thumbPath: row.thumb_path,
+      createdAt: row.created_at
+    });
+  });
+
+  // 同一回忆内的照片严格排序（历史照片按序号 1, 2, ...；新上传照片按时间排序）
+  Object.keys(photosByFolder).forEach(function (f) {
+    photosByFolder[f].sort(function (a, b) {
+      var aNum = a.storagePath && a.storagePath.match(/\/legacy\/[^/]+\/(\d+)\.webp$/);
+      var bNum = b.storagePath && b.storagePath.match(/\/legacy\/[^/]+\/(\d+)\.webp$/);
+      if (aNum && bNum) return Number(aNum[1]) - Number(bNum[1]);
+      if (a.createdAt && b.createdAt) return a.createdAt.localeCompare(b.createdAt);
+      return 0;
+    });
+  });
+
+  var role = window.storySync.getRole();
+  var result = data.entries.map(function (entry) {
+    var photos = photosByFolder[entry.folder] || [];
+    var parts = (entry.memory_date || entry.folder).split(/[-.]/);
+    var dateFormatted = parts[0] + '年' + Number(parts[1]) + '月' + Number(parts[2]) + '日';
+    return {
+      event: {
+        folder: entry.folder,
+        title: entry.title,
+        date: dateFormatted,
+        text: role ? entry.body || '' : '',
+        author: entry.author || '大大布',
+        memoryDate: entry.memory_date
+      },
+      photos: photos,
+      hidden: entry.hidden
+    };
+  });
+
+  result = result.filter(function (story) { return !story.hidden && story.photos.length > 0; });
+  result.sort(function (a, b) {
     var left = (a.event.memoryDate || a.event.folder).split(/[-.]/).map(Number);
     var right = (b.event.memoryDate || b.event.folder).split(/[-.]/).map(Number);
     return left[0] - right[0] || left[1] - right[1] || left[2] - right[2];
   });
-  renderOrbit(stories);
-  initMemoryModal(stories);
-  initMemoryViews(stories);
-  if (!gallery.error) window.initGalleryEditor(stories, gallery, baseFolders);
-  var textLoadId = 0;
-  var memoryLocked = document.getElementById('memory-locked');
-  var galleryToolbar = document.getElementById('gallery-toolbar');
-  var orbitPanel = document.getElementById('orbit-panel');
-  var timelinePanel = document.getElementById('timeline-panel');
-  var linkedMemory = new URLSearchParams(location.search).get('memory');
+  return result;
+}
 
-  function updateGalleryAuthState(role) {
-    if (heroMemoryBtn) {
-      heroMemoryBtn.innerHTML = role ? '打开我们的回忆 <span aria-hidden="true">↓</span>' : '登录查看回忆 <span aria-hidden="true">🔒</span>';
-    }
-    if (memoryLocked) memoryLocked.hidden = Boolean(role);
-    if (galleryToolbar) galleryToolbar.hidden = !role;
-    if (!role) {
-      if (orbitPanel) orbitPanel.hidden = true;
-      if (timelinePanel) timelinePanel.hidden = true;
-      if (window.closeMemoryModal) window.closeMemoryModal();
-      var editorDialog = document.getElementById('gallery-editor');
-      if (editorDialog && editorDialog.open) editorDialog.close();
+function updateGalleryAuthState(role) {
+  var heroImg = document.getElementById('hero-img');
+  if (heroImg) {
+    if (role) {
+      if (!heroImg.src || heroImg.src.indexOf('hero.webp') === -1) {
+        heroImg.src = heroImg.dataset.src || 'img/2026-4-21/hero.webp';
+      }
     } else {
-      if (memoryVisit.view === 'timeline') {
-        if (timelinePanel) timelinePanel.hidden = false;
-        if (orbitPanel) orbitPanel.hidden = true;
-      } else {
-        if (orbitPanel) orbitPanel.hidden = false;
-        if (timelinePanel) timelinePanel.hidden = true;
-      }
-      if (linkedMemory) {
-        var linkedIndex = stories.findIndex(function (story) { return story.event.folder === linkedMemory; });
-        if (linkedIndex >= 0) {
-          document.getElementById('photos').scrollIntoView();
-          openMemory(linkedIndex, 0, orbitEl);
-          linkedMemory = null;
-        }
-      }
+      heroImg.removeAttribute('src');
     }
   }
-
-  window.storySync.onAuthChange(async function (_user, role) {
-    var requestId = ++textLoadId;
-    updateGalleryAuthState(role);
-    stories.forEach(function (story) { story.event.text = ''; });
-    gallery.entries && gallery.entries.forEach(function (entry) { delete entry.body; });
-    window.dispatchEvent(new Event('story-gallery-text-change'));
-    if (!role) return;
-    try {
-      var refreshed = await window.storySync.loadGallery();
-      if (requestId !== textLoadId || !window.storySync.getRole()) return;
-      applyGalleryData(refreshed);
-      gallery = refreshed;
-      window.dispatchEvent(new Event('story-gallery-text-change'));
-    } catch (error) { galleryError.textContent = '回忆文字读取失败，请刷新重试。'; }
-  });
-  if (resumeVisit && window.storySync.getRole()) {
-    requestAnimationFrame(function () {
-      window.scrollTo({ top: memoryVisit.scrollY || document.getElementById('photos').offsetTop, behavior: 'instant' });
-    });
+  if (heroMemoryBtn) {
+    heroMemoryBtn.innerHTML = role ? '打开我们的回忆 <span aria-hidden="true">↓</span>' : '登录查看回忆 <span aria-hidden="true">🔒</span>';
   }
-}).catch(function (e) {
-  galleryError.textContent = '照片暂时没有排好队：' + e.message;
+  if (memoryLocked) memoryLocked.hidden = Boolean(role);
+  if (galleryToolbar) galleryToolbar.hidden = !role;
+  if (!role) {
+    if (orbitPanel) orbitPanel.hidden = true;
+    if (timelinePanel) timelinePanel.hidden = true;
+    if (window.closeMemoryModal) window.closeMemoryModal();
+    var editorDialog = document.getElementById('gallery-editor');
+    if (editorDialog && editorDialog.open) editorDialog.close();
+  } else {
+    if (memoryVisit.view === 'timeline') {
+      if (timelinePanel) timelinePanel.hidden = false;
+      if (orbitPanel) orbitPanel.hidden = true;
+    } else {
+      if (orbitPanel) orbitPanel.hidden = false;
+      if (timelinePanel) timelinePanel.hidden = true;
+    }
+  }
+}
+
+window.storySync.onAuthChange(async function (_user, role) {
+  var requestId = ++textLoadId;
+  updateGalleryAuthState(role);
+  stories.forEach(function (story) { story.event.text = ''; });
+  if (gallery.entries) gallery.entries.forEach(function (entry) { delete entry.body; });
+  window.dispatchEvent(new Event('story-gallery-text-change'));
+  if (!role) {
+    stories = [];
+    renderOrbit(stories);
+    initMemoryViews(stories);
+    return;
+  }
+  galleryError.textContent = '';
+  try {
+    gallery = await window.storySync.loadGallery();
+    if (requestId !== textLoadId || !window.storySync.getRole()) return;
+    stories = buildStoriesFromGallery(gallery);
+    renderOrbit(stories);
+    initMemoryViews(stories);
+    initMemoryModal(stories);
+    if (window.initGalleryEditor) window.initGalleryEditor(stories, gallery, baseFolders);
+    window.dispatchEvent(new Event('story-gallery-text-change'));
+    if (linkedMemory) {
+      var linkedIndex = stories.findIndex(function (story) { return story.event.folder === linkedMemory; });
+      if (linkedIndex >= 0) {
+        document.getElementById('photos').scrollIntoView();
+        openMemory(linkedIndex, 0, orbitEl);
+        linkedMemory = null;
+      }
+    }
+  } catch (error) {
+    galleryError.textContent = '回忆读取失败：' + (error.message || '请刷新重试');
+  }
 });
 
+if (resumeVisit && window.storySync.getRole()) {
+  requestAnimationFrame(function () {
+    window.scrollTo({ top: memoryVisit.scrollY || document.getElementById('photos').offsetTop, behavior: 'instant' });
+  });
+}
+
+var viewsInitialized = false;
 function initMemoryViews(stories) {
   var orbitPanel = document.getElementById('orbit-panel');
   var timelinePanel = document.getElementById('timeline-panel');
@@ -303,6 +339,11 @@ function initMemoryViews(stories) {
     image.height = 350;
     image.loading = 'lazy';
     image.decoding = 'async';
+    if (photo.fallbackThumb) {
+      image.onerror = function () {
+        if (image.src !== photo.fallbackThumb) image.src = photo.fallbackThumb;
+      };
+    }
     button.appendChild(image);
     var copy = makeText('span', 'memory-card-copy', '');
     copy.appendChild(makeText('span', 'memory-card-date', story.event.date));
@@ -320,6 +361,13 @@ function initMemoryViews(stories) {
     var month = monthOf(story);
     if (months.indexOf(month) === -1) months.push(month);
   });
+
+  // 重置并重新生成月份选项（避免重复 append）
+  monthSelect.replaceChildren();
+  var defaultOpt = document.createElement('option');
+  defaultOpt.value = 'all';
+  defaultOpt.textContent = '全部月份';
+  monthSelect.appendChild(defaultOpt);
   months.forEach(function (month) {
     var option = document.createElement('option');
     option.value = month;
@@ -359,15 +407,19 @@ function initMemoryViews(stories) {
     if (view === 'timeline') renderTimeline();
     updateSummary();
   }
-  orbitButton.addEventListener('click', function () { setView('orbit'); });
-  timelineButton.addEventListener('click', function () { setView('timeline'); });
-  monthSelect.addEventListener('change', function () {
-    memoryVisit.month = monthSelect.value;
-    renderTimeline();
-    updateSummary();
-  });
+
+  if (!viewsInitialized) {
+    viewsInitialized = true;
+    orbitButton.addEventListener('click', function () { setView('orbit'); });
+    timelineButton.addEventListener('click', function () { setView('timeline'); });
+    monthSelect.addEventListener('change', function () {
+      memoryVisit.month = monthSelect.value;
+      renderTimeline();
+      updateSummary();
+    });
+    window.addEventListener('story-gallery-text-change', renderTimeline);
+  }
   setView(memoryVisit.view === 'timeline' ? 'timeline' : 'orbit');
-  window.addEventListener('story-gallery-text-change', renderTimeline);
 }
 
 function normalize(v) {
@@ -416,11 +468,9 @@ function renderOrbit(stories) {
       button.type = 'button';
       button.style.setProperty('--cluster-color', clusterColors[storyIndex % clusterColors.length]);
       button.style.setProperty('--photo-tilt', (((photoIndex * 7 + storyIndex * 3) % 13) - 6) + 'deg');
-      if (photo.atlasIndex == null) {
-        button.style.backgroundImage = 'url("' + photo.thumb.replace(/"/g, '%22') + '")';
-        button.style.backgroundSize = 'cover';
-        button.style.backgroundPosition = 'center';
-      } else setAtlasPosition(button, photo.atlasIndex);
+      button.style.backgroundSize = 'cover';
+      button.style.backgroundPosition = 'center';
+      var thumbUrl = photo.thumb || photo.src;
       button.dataset.storyIndex = String(storyIndex);
       button.dataset.photoIndex = String(photoIndex);
       button.setAttribute('aria-label', story.event.date + '，' + story.event.title + '，第' + (photoIndex + 1) + '张照片');
@@ -428,6 +478,8 @@ function renderOrbit(stories) {
 
       var node = {
         el: button,
+        thumbUrl: thumbUrl,
+        loaded: false,
         vector: vector,
         storyIndex: storyIndex,
         photoIndex: photoIndex,
@@ -453,11 +505,7 @@ function renderOrbit(stories) {
     return;
   }
 
-  var atlasImage = new Image();
-  atlasImage.onload = function () { orbitEl.classList.add('is-ready'); };
-  atlasImage.onerror = function () { galleryError.textContent = '照片预览图加载失败，请刷新后再试。'; };
-  atlasImage.src = 'img/orbit-atlas.webp';
-  if (atlasImage.complete && atlasImage.naturalWidth) orbitEl.classList.add('is-ready');
+  orbitEl.classList.add('is-ready');
 
   var state = { yaw: memoryVisit.yaw, pitch: memoryVisit.pitch, vx: 0, vy: 0 };
   saveOrbitPosition = function () { memoryVisit.yaw = state.yaw; memoryVisit.pitch = state.pitch; };
@@ -497,6 +545,10 @@ function renderOrbit(stories) {
         node.el.style.visibility = visible ? 'visible' : 'hidden';
       }
       if (visible) {
+        if (!node.loaded && node.thumbUrl) {
+          node.loaded = true;
+          node.el.style.backgroundImage = 'url("' + node.thumbUrl.replace(/"/g, '%22') + '")';
+        }
         node.el.style.transform = 'translate3d(' + x.toFixed(1) + 'px,' + y.toFixed(1) + 'px,0) scale(' + scale.toFixed(3) + ') rotate(' + node.el.style.getPropertyValue('--photo-tilt') + ')';
         node.el.style.opacity = opacity.toFixed(3);
         var nextZIndex = Math.round(depth * 100);
@@ -624,8 +676,14 @@ function renderOrbit(stories) {
 
 /* ---------- 照片与文字详情 ---------- */
 var openMemory = function () {};
+var modalInitialized = false;
+var modalStories = [];
 
-function initMemoryModal(stories) {
+function initMemoryModal(_stories) {
+  if (_stories) stories = _stories;
+  if (modalInitialized) return;
+  modalInitialized = true;
+
   var modal = document.getElementById('memory-modal');
   var dialog = modal.querySelector('.memory-dialog');
   var closeBtn = document.getElementById('modal-close');
@@ -781,6 +839,10 @@ function initMemoryModal(stories) {
     };
     image.onerror = function () {
       if (requestId !== photoRequestId) return;
+      if (photo.fallbackSrc && src !== photo.fallbackSrc) {
+        loadPhoto(photo, photo.fallbackSrc, showingOriginal);
+        return;
+      }
       if (!showingOriginal && src !== photo.src) {
         originalBtn.hidden = true;
         loadPhoto(photo, photo.src, true);
@@ -819,11 +881,9 @@ function initMemoryModal(stories) {
       button.type = 'button';
       button.className = 'detail-thumb';
       button.setAttribute('aria-label', '查看第' + (index + 1) + '张照片');
-      if (photo.atlasIndex == null) {
-        button.style.backgroundImage = 'url("' + photo.thumb.replace(/"/g, '%22') + '")';
-        button.style.backgroundSize = 'cover';
-        button.style.backgroundPosition = 'center';
-      } else setAtlasPosition(button, photo.atlasIndex);
+      button.style.backgroundImage = 'url("' + (photo.thumb || photo.src).replace(/"/g, '%22') + '")';
+      button.style.backgroundSize = 'cover';
+      button.style.backgroundPosition = 'center';
       button.addEventListener('click', function () { showPhoto(index); });
       thumbs.appendChild(button);
     });

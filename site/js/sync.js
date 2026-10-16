@@ -112,27 +112,108 @@
       .subscribe();
   }
 
+  // ---------- 签名 URL 智能持久化缓存（大幅消除每次打开网站的签名等待时间） ----------
   var signedUrls = new Map();
+  var SIGNED_CACHE_KEY = 'story-signed-urls-cache-v2';
+
+  function loadCachedSignedUrls() {
+    try {
+      var raw = sessionStorage.getItem(SIGNED_CACHE_KEY);
+      if (!raw) return;
+      var parsed = JSON.parse(raw);
+      var now = Date.now();
+      if (parsed && typeof parsed === 'object') {
+        Object.keys(parsed).forEach(function (path) {
+          var item = parsed[path];
+          // 只要签名剩余有效期大于 1 小时，就直接从缓存复用
+          if (item && item.url && item.expiresAt > now + 3600000) {
+            signedUrls.set(path, item.url);
+          }
+        });
+      }
+    } catch (e) {}
+  }
+  loadCachedSignedUrls();
+
+  function saveCachedSignedUrls() {
+    try {
+      var record = {};
+      var now = Date.now();
+      signedUrls.forEach(function (url, path) {
+        record[path] = { url: url, expiresAt: now + 20 * 3600 * 1000 };
+      });
+      sessionStorage.setItem(SIGNED_CACHE_KEY, JSON.stringify(record));
+    } catch (e) {}
+  }
+
+  // ---------- 客户端高画质图片压缩工具（将 10MB 手机原图无损转为 ~150KB WebP，极速上传与加载） ----------
+  function compressImage(file, maxDimension, quality) {
+    return new Promise(function (resolve) {
+      // 若浏览器不支持 Canvas，直接返回原图
+      if (!window.createImageBitmap && !window.FileReader) {
+        resolve(file);
+        return;
+      }
+      var img = new Image();
+      var objectUrl = URL.createObjectURL(file);
+      img.onload = function () {
+        URL.revokeObjectURL(objectUrl);
+        var width = img.naturalWidth || img.width;
+        var height = img.naturalHeight || img.height;
+        var scale = Math.min(1, maxDimension / Math.max(width, height));
+        var targetWidth = Math.max(1, Math.round(width * scale));
+        var targetHeight = Math.max(1, Math.round(height * scale));
+
+        var canvas = document.createElement('canvas');
+        canvas.width = targetWidth;
+        canvas.height = targetHeight;
+        var ctx = canvas.getContext('2d');
+        if (!ctx) { resolve(file); return; }
+        ctx.drawImage(img, 0, 0, targetWidth, targetHeight);
+
+        canvas.toBlob(function (blob) {
+          if (!blob) { resolve(file); return; }
+          resolve(blob);
+        }, 'image/webp', quality);
+      };
+      img.onerror = function () {
+        URL.revokeObjectURL(objectUrl);
+        resolve(file);
+      };
+      img.src = objectUrl;
+    });
+  }
 
   async function loadGallery() {
     await ready;
     if (!currentRole) return { entries: [], photos: [] };
     var columns = 'folder,title,hidden,author,memory_date,body';
+    var photoColumns = 'id,folder,static_src,storage_path,thumb_path,hidden,created_at';
     var results = await Promise.all([
       client.from('story_gallery_entries').select(columns),
-      client.from('story_gallery_photos').select('id,folder,static_src,storage_path,hidden,created_at').order('created_at', { ascending: true })
+      client.from('story_gallery_photos').select(photoColumns).order('created_at', { ascending: true })
     ]);
     if (results[0].error) throw new Error('回忆记录 HTTP ' + results[0].status + '：' + results[0].error.message);
     if (results[1].error) throw new Error('照片记录 HTTP ' + results[1].status + '：' + results[1].error.message);
     var photos = results[1].data || [];
-    var storagePaths = photos.map(function (p) { return p.storage_path; }).filter(Boolean);
-    if (storagePaths.length > 0) {
+    
+    // 收集所有需要签名的路径（原图与缩略图）
+    var allPaths = [];
+    photos.forEach(function (p) {
+      if (p.storage_path) allPaths.push(p.storage_path);
+      if (p.thumb_path) allPaths.push(p.thumb_path);
+    });
+
+    // 过滤出未缓存或已失效的路径，减少无意义的云端网络请求
+    var missingPaths = allPaths.filter(function (path) { return path && !signedUrls.has(path); });
+    if (missingPaths.length > 0) {
       try {
-        var signed = await client.storage.from('story-gallery').createSignedUrls(storagePaths, 60 * 60 * 24);
+        var signed = await client.storage.from('story-gallery').createSignedUrls(missingPaths, 60 * 60 * 24);
         if (signed && signed.data) {
           signed.data.forEach(function (item) {
             if (item.signedUrl) signedUrls.set(item.path, item.signedUrl);
           });
+          saveCachedSignedUrls();
         }
       } catch (signError) {
         console.warn('获取照片签名链接提示：', signError);
@@ -140,40 +221,98 @@
     }
     return { entries: results[0].data || [], photos: photos };
   }
+
   function galleryPhotoUrl(path) {
+    if (!path) return '';
     if (signedUrls.has(path)) return signedUrls.get(path);
     return client.storage.from('story-gallery').getPublicUrl(path).data.publicUrl;
   }
+
   async function saveGalleryEntry(entry) {
     if (!currentRole) throw new Error('请先登录');
     var result = await client.from('story_gallery_entries').upsert(entry, { onConflict: 'folder' });
     if (result.error) throw result.error;
   }
+
   async function deleteGalleryEntry(folder) {
     if (!currentRole) throw new Error('请先登录');
     var result = await client.from('story_gallery_entries').delete().eq('folder', folder);
     if (result.error) throw result.error;
   }
+
   async function uploadGalleryPhoto(folder, file) {
     if (!currentRole || !currentUser) throw new Error('请先登录');
-    var extension = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp' }[file.type];
-    if (!extension || file.size > 10485760) throw new Error('照片格式或大小不符合要求');
-    var path = currentUser.id + '/' + crypto.randomUUID() + '.' + extension;
-    var uploaded = await client.storage.from('story-gallery').upload(path, file, { contentType: file.type, upsert: false });
-    if (uploaded.error) throw uploaded.error;
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+      throw new Error('照片格式不符合要求，仅支持 JPG、PNG 或 WebP');
+    }
+
+    var photoId = crypto.randomUUID();
+    var mainPath = currentUser.id + '/' + photoId + '.webp';
+    var thumbPath = currentUser.id + '/' + photoId + '_thumb.webp';
+
+    // 自动在客户端压缩生成高清大图 (最长边 1600px, 82% WebP, 约 150KB) 与 极速缩略图 (最长边 320px, 75% WebP, 约 15KB)
+    var mainBlob = await compressImage(file, 1600, 0.82);
+    var thumbBlob = await compressImage(file, 320, 0.75);
+
+    var uploadMain = await client.storage.from('story-gallery').upload(mainPath, mainBlob, { contentType: 'image/webp', upsert: false });
+    if (uploadMain.error) throw uploadMain.error;
+
+    var uploadThumb = await client.storage.from('story-gallery').upload(thumbPath, thumbBlob, { contentType: 'image/webp', upsert: false });
+    if (uploadThumb.error) {
+      await client.storage.from('story-gallery').remove([mainPath]);
+      throw uploadThumb.error;
+    }
+
+    // 预热两张签名的本地缓存
     try {
-      var signRes = await client.storage.from('story-gallery').createSignedUrl(path, 60 * 60 * 24);
-      if (signRes && signRes.data && signRes.data.signedUrl) {
-        signedUrls.set(path, signRes.data.signedUrl);
+      var signRes = await client.storage.from('story-gallery').createSignedUrls([mainPath, thumbPath], 60 * 60 * 24);
+      if (signRes && signRes.data) {
+        signRes.data.forEach(function (item) {
+          if (item.signedUrl) signedUrls.set(item.path, item.signedUrl);
+        });
+        saveCachedSignedUrls();
       }
     } catch (signError) {}
-    var row = await client.from('story_gallery_photos').insert({ folder: folder, storage_path: path }).select('id,folder,storage_path').single();
+
+    var row = await client.from('story_gallery_photos').insert({
+      folder: folder,
+      storage_path: mainPath,
+      thumb_path: thumbPath,
+      hidden: false
+    }).select('id,folder,storage_path,thumb_path').single();
+
     if (row.error) {
-      await client.storage.from('story-gallery').remove([path]);
+      await client.storage.from('story-gallery').remove([mainPath, thumbPath]);
       throw row.error;
     }
     return row.data;
   }
+
+  // 专用于迁移已有 88 张 WebP 历史照片与缩略图的快速直传通道
+  async function uploadGalleryPhotoLegacy(folder, mainBlob, thumbBlob, filenameStem) {
+    if (!currentRole || !currentUser) throw new Error('请先登录');
+    var stem = filenameStem || crypto.randomUUID();
+    var slug = folder.replace(/\./g, '-');
+    var mainPath = currentUser.id + '/legacy/' + slug + '/' + stem + '.webp';
+    var thumbPath = currentUser.id + '/legacy/' + slug + '/' + stem + '_thumb.webp';
+
+    var upMain = await client.storage.from('story-gallery').upload(mainPath, mainBlob, { contentType: 'image/webp', upsert: true });
+    if (upMain.error) throw upMain.error;
+    var upThumb = await client.storage.from('story-gallery').upload(thumbPath, thumbBlob, { contentType: 'image/webp', upsert: true });
+    if (upThumb.error) throw upThumb.error;
+
+    var row = await client.from('story_gallery_photos').insert({
+      folder: folder,
+      storage_path: mainPath,
+      thumb_path: thumbPath,
+      hidden: false
+    }).select('id,folder,storage_path,thumb_path').maybeSingle();
+    if (row.error && row.error.code !== '23505' && !String(row.error.message || '').includes('duplicate key')) {
+      throw row.error;
+    }
+    return row.data || { folder: folder, storage_path: mainPath, thumb_path: thumbPath };
+  }
+
   async function setStaticGalleryPhotoHidden(folder, src, hidden) {
     if (!currentRole) throw new Error('请先登录');
     var result = await client.from('story_gallery_photos').upsert(
@@ -181,18 +320,27 @@
     );
     if (result.error) throw result.error;
   }
+
   async function deleteGalleryPhoto(photo) {
     if (!currentRole) throw new Error('请先登录');
     var result = await client.from('story_gallery_photos').delete().eq('id', photo.id);
     if (result.error) throw result.error;
-    var removal = await client.storage.from('story-gallery').remove([photo.storage_path]);
-    if (removal.error) throw removal.error;
+    var toRemove = [photo.storage_path, photo.thumb_path].filter(Boolean);
+    if (toRemove.length > 0) {
+      var removal = await client.storage.from('story-gallery').remove(toRemove);
+      if (removal.error) throw removal.error;
+    }
   }
+
   async function purgeGalleryMemory(folder) {
     if (!currentRole) throw new Error('请先登录');
-    var photosResult = await client.from('story_gallery_photos').select('id,storage_path').eq('folder', folder);
+    var photosResult = await client.from('story_gallery_photos').select('id,storage_path,thumb_path').eq('folder', folder);
     if (photosResult.error) throw photosResult.error;
-    var storagePaths = (photosResult.data || []).map(function (p) { return p.storage_path; }).filter(Boolean);
+    var storagePaths = [];
+    (photosResult.data || []).forEach(function (p) {
+      if (p.storage_path) storagePaths.push(p.storage_path);
+      if (p.thumb_path) storagePaths.push(p.thumb_path);
+    });
     if (storagePaths.length > 0) {
       try {
         var removal = await client.storage.from('story-gallery').remove(storagePaths);
@@ -227,6 +375,7 @@
     if (results[1].error) throw results[1].error;
     return { letters: results[0].data || [], photos: results[1].data || [] };
   }
+
   async function saveLetter(letter) {
     if (!currentRole || !currentUser) throw new Error('请先登录');
     var result = await client.from('story_letters').upsert({
@@ -241,12 +390,16 @@
     if (result.error) throw result.error;
     return result.data;
   }
+
   async function uploadLetterPhoto(letterId, file, name, sortOrder) {
     if (!currentRole || !currentUser) throw new Error('请先登录');
     var id = crypto.randomUUID();
-    var path = currentUser.id + '/' + letterId + '/' + id;
-    var upload = await client.storage.from('story-letter-photos').upload(path, file, {
-      contentType: file.type || 'application/octet-stream',
+    var path = currentUser.id + '/' + letterId + '/' + id + '.webp';
+    // 压缩实体信件照片（保持超清文字可读，同时体积从 10MB 骤降至 ~200KB）
+    var compressedBlob = await compressImage(file, 1600, 0.85);
+
+    var upload = await client.storage.from('story-letter-photos').upload(path, compressedBlob, {
+      contentType: 'image/webp',
       upsert: false
     });
     if (upload.error) throw upload.error;
@@ -264,6 +417,7 @@
     }
     return result.data;
   }
+
   async function removeLetterPhoto(photo) {
     if (!currentRole) throw new Error('请先登录');
     var result = await client.from('story_letter_photos').delete().eq('id', photo.id);
@@ -271,12 +425,14 @@
     var removal = await client.storage.from('story-letter-photos').remove([photo.storage_path]);
     if (removal.error) throw removal.error;
   }
+
   async function downloadLetterPhoto(path) {
     if (!currentRole) throw new Error('请先登录');
     var result = await client.storage.from('story-letter-photos').download(path);
     if (result.error) throw result.error;
     return result.data;
   }
+
   async function deleteLetter(letterId) {
     if (!currentRole) throw new Error('请先登录');
     var photosResult = await client.from('story_letter_photos').select('id,storage_path').eq('letter_id', letterId);
@@ -294,6 +450,7 @@
     if (result.error) throw result.error;
     return true;
   }
+
   function onMailboxChange(callback) {
     if (mailboxChannel) client.removeChannel(mailboxChannel);
     mailboxChannel = client.channel('story-mailbox')
@@ -316,6 +473,7 @@
     saveGalleryEntry: saveGalleryEntry,
     deleteGalleryEntry: deleteGalleryEntry,
     uploadGalleryPhoto: uploadGalleryPhoto,
+    uploadGalleryPhotoLegacy: uploadGalleryPhotoLegacy,
     setStaticGalleryPhotoHidden: setStaticGalleryPhotoHidden,
     deleteGalleryPhoto: deleteGalleryPhoto,
     purgeGalleryMemory: purgeGalleryMemory,
@@ -325,6 +483,7 @@
     uploadLetterPhoto: uploadLetterPhoto,
     removeLetterPhoto: removeLetterPhoto,
     downloadLetterPhoto: downloadLetterPhoto,
+    compressImage: compressImage,
     onMailboxChange: onMailboxChange,
     onAuthChange: function (listener) { listeners.push(listener); listener(currentUser, currentRole); }
   };

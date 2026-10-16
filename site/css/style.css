@@ -302,10 +302,29 @@ body.gate-open { overflow: hidden; }
 }
 body:not(.is-logged-in) .hero-portrait {
   cursor: pointer;
+  min-height: 250px;
+  background: linear-gradient(135deg, #fdf8f4 0%, #faeef5 100%);
 }
 body:not(.is-logged-in) .hero-portrait img {
   filter: blur(20px);
   transform: scale(1.08);
+}
+body:not(.is-logged-in) .hero-portrait img:not([src]),
+body:not(.is-logged-in) .hero-portrait img[src=""] {
+  opacity: 0;
+  height: 200px;
+}
+.gallery-migrate-btn {
+  background: linear-gradient(135deg, #786171 0%, #4a3a60 100%);
+  color: #fff !important;
+  border: none;
+  font-weight: 600;
+  box-shadow: 0 4px 14px rgba(74, 58, 96, 0.25);
+  transition: transform 0.2s ease, filter 0.2s ease;
+}
+.gallery-migrate-btn:hover {
+  filter: brightness(1.1);
+  transform: translateY(-1px);
 }
 .hero-portrait-lock {
   position: absolute;

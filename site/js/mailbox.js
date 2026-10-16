@@ -42,7 +42,7 @@
   ['sender', 'date', 'title', 'body', 'memory'].forEach(function (name) {
     fields[name] = document.getElementById('letter-' + name);
   });
-  var original = { id: originalId, date: '2026-08-19', title: '小作文', sender: '大大布', original: true, photos: [] };
+  var original = null;
 
   function validLetter(letter, isDraft) {
     return letter && typeof letter.id === 'string' && typeof letter.title === 'string' && typeof letter.body === 'string' &&
@@ -68,7 +68,7 @@
   }
   function loadLocalMailbox() {
     letters = localLetters.map(cloneLetter);
-    original.photos = localOriginalPhotos.slice();
+    if (original) original.photos = localOriginalPhotos.slice();
   }
   loadLocalMailbox();
 
@@ -139,7 +139,7 @@
       outgoing.setAttribute('aria-hidden', 'true');
     }
     list.replaceChildren();
-    var all = [original].concat(letters).sort(function (a, b) { return b.date.localeCompare(a.date) || b.id.localeCompare(a.id); });
+    var all = (original ? [original] : []).concat(letters).sort(function (a, b) { return b.date.localeCompare(a.date) || b.id.localeCompare(a.id); });
     stackIndex = Math.max(0, Math.min(stackIndex, all.length - 1));
     all.forEach(function (letter, index) {
       var button = node('button', 'letter-envelope', '');
@@ -295,10 +295,22 @@
     draftTimer = setTimeout(saveDraft, 300);
   });
   async function readPhotoBlob(photo) {
-    if (photo.storage_path && syncing()) return storySync().downloadLetterPhoto(photo.storage_path);
-    var blob = await photoStore('readonly', function (store) { return store.get(photo.id); });
-    if (!blob) throw new Error('missing photo');
-    return blob;
+    var cacheKey = photo.storage_path || photo.id;
+    try {
+      var cached = await photoStore('readonly', function (store) { return store.get(cacheKey); });
+      if (cached) return cached;
+    } catch (e) {}
+
+    if (photo.storage_path && syncing()) {
+      var downloaded = await storySync().downloadLetterPhoto(photo.storage_path);
+      try {
+        await photoStore('readwrite', function (store) { return store.put(downloaded, cacheKey); });
+      } catch (cacheErr) {}
+      return downloaded;
+    }
+    var fallback = await photoStore('readonly', function (store) { return store.get(photo.id); });
+    if (!fallback) throw new Error('missing photo');
+    return fallback;
   }
   async function uploadUnsyncedPhotos(letterId, photos) {
     var saved = [];
@@ -434,18 +446,25 @@
     link.click();
     setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
   });
-  window.addEventListener('pagehide', function () { if (!composePanel.hidden) saveDraft(); });
-  fetch('data/events.json').then(function (response) { if (!response.ok) throw new Error(); return response.json(); }).then(function (events) {
-    events.forEach(function (event) {
-      var option = node('option', '', event.date + ' · ' + event.title);
-      option.value = event.folder;
-      fields.memory.appendChild(option);
+  function populateMemoryOptions() {
+    if (!storySync()) return;
+    storySync().loadGallery().then(function (res) {
+      if (!res || !res.entries) return;
+      fields.memory.replaceChildren(node('option', '', '不关联回忆'));
+      fields.memory.options[0].value = '';
+      res.entries.forEach(function (entry) {
+        var label = (entry.memory_date || entry.folder) + ' · ' + entry.title;
+        var option = node('option', '', label);
+        option.value = entry.folder;
+        fields.memory.appendChild(option);
+      });
+      fields.memory.disabled = false;
+      if (!composePanel.hidden && draft) fields.memory.value = draft.memory || '';
+    }).catch(function () {
+      fields.memory.disabled = true;
     });
-    if (!composePanel.hidden && draft) fields.memory.value = draft.memory || '';
-  }).catch(function () {
-    fields.memory.disabled = true;
-    status.textContent = '回忆列表暂时未能加载，仍可写信和读信。';
-  });
+  }
+  populateMemoryOptions();
 
   document.getElementById('previous-envelope').addEventListener('click', function () { stackIndex--; renderList(-1); });
   document.getElementById('next-envelope').addEventListener('click', function () { stackIndex++; renderList(1); });
@@ -506,36 +525,45 @@
     photoUrls[place] = [];
     container.replaceChildren();
     if (!photos.length) { container.appendChild(node('p', 'photo-empty', '还没有收录实体信照片')); return; }
-    for (var index = 0; index < photos.length; index++) {
-      var photo = photos[index];
+    var results = await Promise.all(photos.map(async function (photo, index) {
       try {
         var blob = await readPhotoBlob(photo);
-        if (container.dataset.version !== version) return;
-        var url = URL.createObjectURL(blob);
-        photoUrls[place].push(url);
-        var card = node('div', 'photo-card', '');
-        var button = node('button', 'photo-thumbnail', '');
-        button.type = 'button';
-        var img = document.createElement('img');
-        img.src = url; img.alt = '第 ' + (index + 1) + ' 页：' + photo.name; img.decoding = 'async';
-        button.appendChild(img);
-        button.addEventListener('click', (function (page) { return function () {
-          gallery = photos.slice(); galleryIndex = page;
-          document.getElementById('photo-viewer').showModal(); showPhoto();
-        }; })(index));
-        card.appendChild(button);
-        card.appendChild(node('span', '', '第 ' + (index + 1) + ' 页'));
-        if (canRemovePhoto(photo)) {
-          var remove = node('button', 'mail-link', '移除');
-          remove.type = 'button';
-          remove.addEventListener('click', (function (item) { return function () { removePhoto(place, item); }; })(photo));
-          card.appendChild(remove);
-        }
-        container.appendChild(card);
-      } catch (e) {
-        if (container.dataset.version === version) container.appendChild(node('p', '', '第 ' + (index + 1) + ' 页照片无法读取，请重新添加或检查登录状态。'));
+        return { photo: photo, blob: blob, index: index };
+      } catch (err) {
+        return { photo: photo, error: err, index: index };
       }
-    }
+    }));
+    if (container.dataset.version !== version) return;
+
+    results.forEach(function (item) {
+      var photo = item.photo;
+      var index = item.index;
+      if (item.error || !item.blob) {
+        container.appendChild(node('p', '', '第 ' + (index + 1) + ' 页照片无法读取，请重新添加或检查登录状态。'));
+        return;
+      }
+      var url = URL.createObjectURL(item.blob);
+      photoUrls[place].push(url);
+      var card = node('div', 'photo-card', '');
+      var button = node('button', 'photo-thumbnail', '');
+      button.type = 'button';
+      var img = document.createElement('img');
+      img.src = url; img.alt = '第 ' + (index + 1) + ' 页：' + photo.name; img.decoding = 'async';
+      button.appendChild(img);
+      button.addEventListener('click', (function (page) { return function () {
+        gallery = photos.slice(); galleryIndex = page;
+        document.getElementById('photo-viewer').showModal(); showPhoto();
+      }; })(index));
+      card.appendChild(button);
+      card.appendChild(node('span', '', '第 ' + (index + 1) + ' 页'));
+      if (canRemovePhoto(photo)) {
+        var remove = node('button', 'mail-link', '移除');
+        remove.type = 'button';
+        remove.addEventListener('click', (function (itemPhoto) { return function () { removePhoto(place, itemPhoto); }; })(photo));
+        card.appendChild(remove);
+      }
+      container.appendChild(card);
+    });
   }
   ['compose', 'reader'].forEach(function (place) {
     var input = document.getElementById(place + '-photo-input');
@@ -616,17 +644,23 @@
     var remoteOriginal = (data.letters || []).find(function (letter) {
       return letter.is_original || letter.id === originalId;
     });
-    if (remoteOriginal && remoteOriginal.body) {
-      original.body = remoteOriginal.body;
-      if (remoteOriginal.date) original.date = remoteOriginal.date.replace(/-/g, '.');
-      if (remoteOriginal.title) original.title = remoteOriginal.title;
-      if (remoteOriginal.sender) original.sender = remoteOriginal.sender;
+    if (remoteOriginal) {
+      original = {
+        id: originalId,
+        date: (remoteOriginal.date || '2026.08.19').replace(/-/g, '.'),
+        title: remoteOriginal.title || '小作文',
+        sender: remoteOriginal.sender || '大大布',
+        body: remoteOriginal.body || '',
+        original: true,
+        photos: (photosByLetter[originalId] || []).concat(localOriginalPhotos)
+      };
+    } else {
+      original = null;
     }
     var remoteIds = new Set(letters.map(function (letter) { return letter.id; }));
     letters = letters.concat(localLetters.filter(function (letter) { return !remoteIds.has(letter.id); }).map(function (letter) {
       return Object.assign(cloneLetter(letter), { localOnly: true });
     }));
-    original.photos = (photosByLetter[originalId] || []).concat(localOriginalPhotos);
   }
   async function migrateLocalMailbox(data) {
     var remoteIds = Object.create(null);
