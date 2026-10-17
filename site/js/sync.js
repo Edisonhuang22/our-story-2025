@@ -114,10 +114,14 @@
 
   // ---------- 签名 URL 智能持久化缓存（利用 localStorage 实现跨会话 0ms 闪电秒开与磁盘复用） ----------
   var signedUrls = new Map();
-  var SIGNED_CACHE_KEY = 'story-signed-urls-cache-v3';
+  var SIGNED_CACHE_KEY = 'story-signed-urls-cache-v4';
 
   function loadCachedSignedUrls() {
     try {
+      // 清理旧版本可能残留已过期的错误缓存
+      localStorage.removeItem('story-signed-urls-cache-v2');
+      localStorage.removeItem('story-signed-urls-cache-v3');
+
       var raw = localStorage.getItem(SIGNED_CACHE_KEY);
       if (!raw) return;
       var parsed = JSON.parse(raw);
@@ -125,9 +129,9 @@
       if (parsed && typeof parsed === 'object') {
         Object.keys(parsed).forEach(function (path) {
           var item = parsed[path];
-          // 只要签名剩余有效期大于 1 小时，就直接从持久缓存复用，避免产生新 URL 破坏浏览器本地磁盘缓存
-          if (item && item.url && item.expiresAt > now + 3600000) {
-            signedUrls.set(path, item.url);
+          // 只要签名剩余有效期大于 2 小时，就直接从持久缓存复用，避免产生新 URL 破坏浏览器本地磁盘缓存
+          if (item && item.url && item.expiresAt > now + 7200000) {
+            signedUrls.set(path, { url: item.url, expiresAt: item.expiresAt });
           }
         });
       }
@@ -138,9 +142,10 @@
   function saveCachedSignedUrls() {
     try {
       var record = {};
-      var now = Date.now();
-      signedUrls.forEach(function (url, path) {
-        record[path] = { url: url, expiresAt: now + 20 * 3600 * 1000 };
+      signedUrls.forEach(function (entry, path) {
+        if (entry && entry.url && entry.expiresAt) {
+          record[path] = { url: entry.url, expiresAt: entry.expiresAt };
+        }
       });
       localStorage.setItem(SIGNED_CACHE_KEY, JSON.stringify(record));
     } catch (e) {}
@@ -229,10 +234,13 @@
         var batchResults = await Promise.all(batches.map(function (chunk) {
           return client.storage.from('story-gallery').createSignedUrls(chunk, 60 * 60 * 24);
         }));
+        var now = Date.now();
         batchResults.forEach(function (signed) {
           if (signed && signed.data) {
             signed.data.forEach(function (item) {
-              if (item.signedUrl) signedUrls.set(item.path, item.signedUrl);
+              if (item.signedUrl) {
+                signedUrls.set(item.path, { url: item.signedUrl, expiresAt: now + 23 * 3600 * 1000 });
+              }
             });
           }
         });
@@ -246,8 +254,35 @@
 
   function galleryPhotoUrl(path) {
     if (!path) return '';
-    if (signedUrls.has(path)) return signedUrls.get(path);
+    if (signedUrls.has(path)) {
+      var entry = signedUrls.get(path);
+      return typeof entry === 'string' ? entry : (entry && entry.url) || '';
+    }
     return client.storage.from('story-gallery').getPublicUrl(path).data.publicUrl;
+  }
+
+  async function refreshSignedUrls(paths) {
+    if (!paths || !paths.length) return {};
+    paths.forEach(function (path) { signedUrls.delete(path); });
+    saveCachedSignedUrls();
+    try {
+      var res = await client.storage.from('story-gallery').createSignedUrls(paths, 60 * 60 * 24);
+      var refreshed = {};
+      if (res && res.data) {
+        var now = Date.now();
+        res.data.forEach(function (item) {
+          if (item.signedUrl) {
+            signedUrls.set(item.path, { url: item.signedUrl, expiresAt: now + 23 * 3600 * 1000 });
+            refreshed[item.path] = item.signedUrl;
+          }
+        });
+        saveCachedSignedUrls();
+      }
+      return refreshed;
+    } catch (e) {
+      console.warn('刷新照片签名链接提示：', e);
+      return {};
+    }
   }
 
   async function saveGalleryEntry(entry) {
@@ -291,8 +326,9 @@
     try {
       var signRes = await client.storage.from('story-gallery').createSignedUrls([mainPath, thumbPath], 60 * 60 * 24);
       if (signRes && signRes.data) {
+        var now = Date.now();
         signRes.data.forEach(function (item) {
-          if (item.signedUrl) signedUrls.set(item.path, item.signedUrl);
+          if (item.signedUrl) signedUrls.set(item.path, { url: item.signedUrl, expiresAt: now + 23 * 3600 * 1000 });
         });
         saveCachedSignedUrls();
       }
@@ -494,6 +530,7 @@
     onPerspectiveChange: onPerspectiveChange,
     loadGallery: loadGallery,
     galleryPhotoUrl: galleryPhotoUrl,
+    refreshSignedUrls: refreshSignedUrls,
     saveGalleryEntry: saveGalleryEntry,
     deleteGalleryEntry: deleteGalleryEntry,
     uploadGalleryPhoto: uploadGalleryPhoto,

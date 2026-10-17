@@ -825,6 +825,10 @@ function initMemoryModal(_stories) {
     }
   }
 
+  function preloadPreview(photo) {
+    preloadPhoto(photo);
+  }
+
   function loadPhoto(photo, instantThumb, fullSrc) {
     var requestId = ++photoRequestId;
     var story = stories[currentStory];
@@ -832,6 +836,8 @@ function initMemoryModal(_stories) {
     image.alt = story.event.title + '，第' + (currentPhoto + 1) + '张照片';
     if (photo.w && photo.h) { image.width = photo.w; image.height = photo.h; }
     else { image.removeAttribute('width'); image.removeAttribute('height'); }
+
+    originalBtn.hidden = false;
 
     // 如果没有独立大图，直接以缩略图呈现
     if (!fullSrc || fullSrc === instantThumb) {
@@ -857,6 +863,15 @@ function initMemoryModal(_stories) {
     originalBtn.disabled = false;
     originalBtn.textContent = '高清载入中…';
 
+    image.onerror = function () {
+      if (requestId !== photoRequestId) return;
+      if (!fullSrc || fullSrc === instantThumb) {
+        image.classList.remove('is-loading');
+        originalBtn.disabled = false;
+        originalBtn.textContent = '照片加载失败，点击重试';
+      }
+    };
+
     var fullImg = new Image();
     fullImg.decoding = 'async';
     fullImg.onload = function () {
@@ -870,7 +885,7 @@ function initMemoryModal(_stories) {
       if (requestId !== photoRequestId) return;
       image.classList.remove('is-loading');
       originalBtn.disabled = false;
-      originalBtn.textContent = '原图加载失败，点击重试';
+      originalBtn.textContent = (image.naturalWidth > 0) ? '原图加载失败，点击重试' : '照片加载失败，点击重试';
     };
     fullImg.src = fullSrc;
   }
@@ -924,7 +939,7 @@ function initMemoryModal(_stories) {
     Object.keys(perspectiveTexts).forEach(function (author) { perspectiveTexts[author].value = ''; });
     loadPerspectives();
     buildThumbs(story);
-    preloadPreview(story.photos[photoIndex]);
+    preloadPhoto(story.photos[photoIndex]);
     showPhoto(photoIndex);
     clearTimeout(hideTimer);
     modal.hidden = false;
@@ -956,10 +971,19 @@ function initMemoryModal(_stories) {
   modal.querySelector('[data-modal-close]').addEventListener('click', closeModal);
   prevBtn.addEventListener('click', function () { showPhoto(currentPhoto - 1); });
   nextBtn.addEventListener('click', function () { showPhoto(currentPhoto + 1); });
-  originalBtn.addEventListener('click', function () {
+  originalBtn.addEventListener('click', async function () {
     var photo = stories[currentStory].photos[currentPhoto];
     if (!photo) return;
     if (originalBtn.textContent.includes('重试')) {
+      originalBtn.disabled = true;
+      originalBtn.textContent = '正在重新获取…';
+      if (photo.storagePath && window.storySync && window.storySync.refreshSignedUrls) {
+        try {
+          var refreshed = await window.storySync.refreshSignedUrls([photo.storagePath, photo.thumbPath].filter(Boolean));
+          if (refreshed[photo.storagePath]) photo.src = refreshed[photo.storagePath];
+          if (refreshed[photo.thumbPath]) photo.thumb = refreshed[photo.thumbPath];
+        } catch (_) {}
+      }
       loadPhoto(photo, photo.thumb || photo.src, photo.src);
     } else if (photo.src) {
       window.open(photo.src, '_blank');
