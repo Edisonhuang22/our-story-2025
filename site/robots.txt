@@ -1,0 +1,4 @@
+# 这是两个人的私密站点，不希望被搜索引擎收录。
+# noindex 同时写在两个页面的 <head> 里，这里是兜底（有些爬虫只看 robots.txt）。
+User-agent: *
+Disallow: /

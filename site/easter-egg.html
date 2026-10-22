@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; object-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data: blob: https://*.supabase.co; connect-src 'self' https://*.supabase.co wss://*.supabase.co; media-src 'self' blob: https://*.supabase.co; form-action 'self'">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex, nofollow, noarchive">
+  <meta name="theme-color" content="#e8e3f8">
+  <title>我们的信箱 · 大大布将军与小小二下士</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🥚</text></svg>">
+  <link rel="stylesheet" href="css/style.css?v=c8668feb">
+  <link rel="stylesheet" href="css/mailbox.css?v=c54e6d8c">
+  <link rel="preload" as="image" href="img/gate/girl.webp" type="image/webp">
+  <link rel="preload" as="image" href="img/gate/boy.webp" type="image/webp">
+  <link rel="stylesheet" href="css/egg.css?v=19b5cfbb">
+</head>
+<body>
+  <div id="gate" class="gate" role="dialog" aria-modal="true" aria-labelledby="gate-title">
+    <div class="gate-card" id="gate-card">
+      <p class="gate-kicker">REUNION MISSION</p>
+      <h2 class="gate-title" id="gate-title">一起去江西</h2>
+      <p class="gate-hint" id="gate-hint">让大大布学长和小小二学妹在江西会合。</p>
+
+      <div class="china-stage" id="china-stage">
+        <img class="china-map" src="img/gate/china-map.svg" alt="" width="1000" height="850" draggable="false">
+
+        <div class="map-destination" id="jiangxi-target" aria-hidden="true"><span>江西</span></div>
+        <button
+          class="map-person map-girl"
+          id="gate-girl"
+          type="button"
+          aria-label="小小二学妹，拖动到江西"
+          aria-describedby="gate-hint gate-status"
+        >
+          <img src="img/gate/girl.webp" alt="" width="522" height="478" draggable="false">
+          <span class="map-person-name">小小二学妹</span>
+        </button>
+        <button
+          class="map-person map-boy"
+          id="gate-boy"
+          type="button"
+          aria-label="大大布学长，拖动到江西"
+          aria-describedby="gate-hint gate-status"
+        >
+          <img src="img/gate/boy.webp" alt="" width="528" height="472" draggable="false">
+          <span class="map-person-name">大大布学长</span>
+        </button>
+        <span class="map-reunion-flare" aria-hidden="true"></span>
+      </div>
+
+      <p class="gate-status" id="gate-status" aria-live="polite">把他们都拖到江西 · 也可以使用方向键</p>
+    </div>
+  </div>
+
+  <main class="egg-page">
+    <section class="egg-top">
+      <button class="egg-big" id="egg-big" type="button" title="点我一下试试" aria-label="打开彩蛋">🥚</button>
+      <p class="egg-kicker">LETTERS BETWEEN US</p>
+      <h1 class="mailbox-title">我们的信箱</h1>
+      <p class="egg-sub">有些话，写下来，留着慢慢读。</p>
+    </section>
+
+    <section class="mailbox-locked" id="mailbox-locked">
+      <div class="locked-card">
+        <span class="locked-icon" aria-hidden="true">💌</span>
+        <h2>信箱已上锁</h2>
+        <p>这里收录着大大布与小小二写给彼此的信件与纸上字迹。<br>请登录账号解锁信箱。</p>
+        <button class="pill-btn locked-login-btn" type="button" id="mailbox-locked-login">登录查看信箱</button>
+      </div>
+    </section>
+
+    <section id="mailbox-list" aria-labelledby="mailbox-list-title" hidden>
+      <div class="mailbox-toolbar">
+        <div><h2 id="mailbox-list-title" tabindex="-1">收好的信</h2><p id="letter-count"></p></div>
+        <button class="small-btn" id="write-letter" type="button">写一封信 ↗</button>
+      </div>
+      <div class="letter-list" id="letter-list"></div>
+      <div class="stack-controls"><button class="mail-link" id="previous-envelope" type="button">← 上一封</button><span id="stack-position" aria-live="polite"></span><button class="mail-link" id="next-envelope" type="button">下一封 →</button></div>
+      <button class="draft-link" id="resume-draft" type="button" hidden>继续上次没写完的信 →</button>
+      <p class="mailbox-local-note" id="mailbox-sync-note">当前信件只保存在本机。登录后可同步给对方。</p>
+      <button class="mail-link" id="mailbox-sync-button" type="button">登录后同步信箱</button>
+    </section>
+
+    <section class="letter-compose" id="letter-compose" aria-labelledby="compose-title" hidden>
+      <div class="mailbox-toolbar"><h2 id="compose-title" tabindex="-1">写一封信</h2><div class="reader-actions"><button class="mail-link mail-danger" id="compose-delete-letter" type="button" hidden>删除这封信</button><button class="mail-link" id="cancel-letter" type="button">收起，回到信箱</button></div></div>
+      <form id="letter-form">
+        <div class="letter-fields">
+          <label>写信人<select id="letter-sender"><option>大大布</option><option>小小二</option></select></label>
+          <label>写信日期<input id="letter-date" type="date" required></label>
+        </div>
+        <label>信的标题<input id="letter-title" maxlength="80" required placeholder="给这封信起一个名字"></label>
+        <label>电子版内容<textarea id="letter-body" rows="12" maxlength="30000" placeholder="慢慢写，也可以只收录实体信照片。"></textarea></label>
+        <section class="paper-photos"><h3>实体信件照片</h3><p>可以和电子版一起保存，多页信件按添加顺序展示。</p><input id="compose-photo-input" type="file" accept="image/jpeg,image/png,image/webp" multiple aria-label="添加实体信件照片"><div id="compose-photos" class="photo-grid"></div></section>
+        <label>关联一段回忆（可选）<select id="letter-memory"><option value="">不关联回忆</option></select></label>
+        <div class="letter-form-footer"><button class="small-btn" type="submit">收进信箱</button><span id="draft-status" role="status"></span></div>
+      </form>
+    </section>
+
+    <section id="letter-reader" aria-label="信件阅读" hidden>
+      <div class="mailbox-toolbar reader-toolbar">
+        <button class="mail-link" id="back-to-mailbox" type="button">← 回到信箱</button>
+        <div class="reader-actions"><button class="mail-link" id="edit-letter" type="button" hidden>修改这封信</button><button class="mail-link mail-danger" id="delete-letter" type="button" hidden>删除这封信</button><button class="mail-link" id="download-letter" type="button">下载文字</button></div>
+      </div>
+      <div id="letter-content" tabindex="-1"></div>
+      <section class="paper-photos"><h3>纸上的字迹</h3><p>收好这封信的实体照片，点击可放大阅读。</p><input id="reader-photo-input" type="file" accept="image/jpeg,image/png,image/webp" multiple aria-label="为这封信添加实体照片"><div id="reader-photos" class="photo-grid"></div></section>
+      <a class="letter-memory-link" id="letter-memory-link" hidden>看看这封信里的回忆 ↗</a>
+    </section>
+    <p class="mailbox-status" id="mailbox-status" role="status"></p>
+
+
+    <div class="egg-navigation">
+      <a class="egg-back" href="index.html">回到故事首页</a>
+    </div>
+    <p class="egg-foot">P.S. 能找到这里的人，一定认真看到了最后吧。</p>
+  </main>
+
+  <div id="hearts" aria-hidden="true"></div>
+
+  <script src="js/gate.js?v=922eb06e"></script>
+  <script src="js/vendor/supabase-2.118.0.min.js?v=31c3a326"></script>
+  <script src="js/sync.js?v=1a8b63b3"></script>
+  <dialog id="photo-viewer"><div class="photo-viewer-toolbar"><button id="photo-previous" type="button">上一页</button><span id="photo-page"></span><button id="photo-next" type="button">下一页</button><button id="photo-zoom" type="button">查看原尺寸</button><button id="photo-close" type="button">关闭 ×</button></div><div class="photo-viewer-scroll"><img id="photo-full" alt="实体信件照片"></div></dialog>
+  <script src="js/mailbox.js?v=962e39d7"></script>
+  <script src="js/egg.js?v=ad17be2c"></script>
+</body>
+</html>

@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; object-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data: blob: https://*.supabase.co; connect-src 'self' https://*.supabase.co wss://*.supabase.co; media-src 'self' blob: https://*.supabase.co; form-action 'self'">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex, nofollow, noarchive">
+  <meta name="theme-color" content="#e8e3f8">
+  <title>大大布将军与小小二下士</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>💌</text></svg>">
+  <link rel="preload" as="image" href="img/gate/girl.webp" type="image/webp">
+  <link rel="preload" as="image" href="img/gate/boy.webp" type="image/webp">
+  <link rel="stylesheet" href="css/style.css?v=c8668feb">
+</head>
+<body>
+  <div id="gate" class="gate" role="dialog" aria-modal="true" aria-label="江西会合入口">
+    <div class="gate-card" id="gate-card">
+      <div class="china-stage" id="china-stage">
+        <img class="china-map" src="img/gate/china-map.svg" alt="" width="1000" height="850" draggable="false">
+
+        <div class="map-destination" id="jiangxi-target" aria-hidden="true"><span>江西</span></div>
+        <button
+          class="map-person map-girl"
+          id="gate-girl"
+          type="button"
+          aria-label="小小二学妹，拖动到江西"
+          aria-describedby="gate-status"
+        >
+          <img src="img/gate/girl.webp" alt="" width="522" height="478" draggable="false">
+          <span class="map-person-name">小小二学妹</span>
+        </button>
+        <button
+          class="map-person map-boy"
+          id="gate-boy"
+          type="button"
+          aria-label="大大布学长，拖动到江西"
+          aria-describedby="gate-status"
+        >
+          <img src="img/gate/boy.webp" alt="" width="528" height="472" draggable="false">
+          <span class="map-person-name">大大布学长</span>
+        </button>
+        <span class="map-reunion-flare" aria-hidden="true"></span>
+      </div>
+
+      <p class="gate-status" id="gate-status" aria-live="polite">把他们都拖到江西 · 也可以使用方向键</p>
+    </div>
+  </div>
+
+  <header class="hero" id="top">
+    <div class="hero-heading-wrap" data-fade="0.15">
+      <p class="gallery-kicker">OUR STORY · 2025 — 2026</p>
+      <h1 class="hero-heading"><span>大大布将军</span><span><small>与</small>小小二下士</span></h1>
+      <p class="hero-intro">有些日子，想和你再过一遍。</p>
+      <div class="hero-actions">
+        <a class="pill-btn" id="hero-memory-btn" href="#photos">登录查看回忆 <span aria-hidden="true">🔒</span></a>
+      </div>
+    </div>
+    <div class="hero-portrait-pos">
+      <div class="hero-portrait" id="hero-portrait" data-fade="0.6">
+        <img id="hero-img" data-src="img/hero.webp" alt="我们的合照" width="520" height="360" decoding="async">
+        <p class="portrait-caption">2026.04.21 <span>漂亮合照</span></p>
+        <div class="hero-portrait-lock" id="hero-portrait-lock"><span class="lock-icon" aria-hidden="true">🔒</span><span>合照登录后解锁</span></div>
+      </div>
+    </div>
+    <div class="hero-bottom">
+      <p class="hero-tag" data-fade="0.35">第一次加载可能要有点长时间，不要着急吼</p>
+    </div>
+  </header>
+
+  <main class="memory-gallery" id="photos" aria-labelledby="gallery-title">
+    <div class="gallery-copy">
+      <p class="gallery-kicker">OUR LITTLE UNIVERSE</p>
+      <h2 id="gallery-title">把我们的故事转到眼前</h2>
+      <p>拖动照片球，点开任意一张。靠在一起的照片属于同一段回忆，也会打开双方的记忆。</p>
+    </div>
+
+    <div class="gallery-toolbar" id="gallery-toolbar" hidden>
+      <div class="view-switch" role="group" aria-label="回忆浏览方式">
+        <button id="view-orbit" type="button" aria-pressed="true" aria-controls="orbit-panel">转转照片球</button>
+        <button id="view-timeline" type="button" aria-pressed="false" aria-controls="timeline-panel">按时间查看</button>
+      </div>
+      <button id="gallery-add" class="small-btn gallery-add" type="button" hidden>添加回忆 ＋</button>
+      <p id="gallery-summary" class="gallery-summary" aria-live="polite">正在整理回忆…</p>
+    </div>
+
+    <div id="orbit-panel" hidden>
+    <div class="orbit-shell">
+      <div
+        class="memory-orbit"
+        id="memory-orbit"
+        role="region"
+        aria-label="可拖动的照片故事球"
+        aria-describedby="orbit-help"
+        tabindex="0"
+      >
+        <div class="orbit-stars" aria-hidden="true"></div>
+        <div class="orbit-stage" id="orbit-stage"></div>
+        <div class="orbit-focus" aria-hidden="true"></div>
+      </div>
+
+      <div class="orbit-caption" aria-live="polite">
+        <span id="orbit-date">正在整理回忆…</span>
+        <strong id="orbit-title"></strong>
+        <span id="orbit-count"></span>
+      </div>
+    </div>
+
+    <p class="orbit-help" id="orbit-help">
+      <span>拖动旋转</span><i aria-hidden="true"></i><span>点击阅读</span><i aria-hidden="true"></i><span>方向键也可以</span>
+    </p>
+    </div>
+    <section class="timeline-panel" id="timeline-panel" aria-label="回忆时间轴" hidden>
+      <div class="timeline-filter">
+        <p>每一段回忆，都有自己的位置。</p>
+        <label for="memory-month">月份 <select id="memory-month"><option value="all">全部月份</option></select></label>
+      </div>
+      <div id="timeline-list" class="timeline-list"></div>
+    </section>
+
+    <section class="memory-locked" id="memory-locked">
+      <div class="locked-card">
+        <span class="locked-icon" aria-hidden="true">🔒</span>
+        <h3>回忆已上锁</h3>
+        <p>这里珍藏着大大布与小小二的每一段回忆和故事照片。<br>请登录账号解锁浏览。</p>
+        <button class="pill-btn locked-login-btn" type="button" id="memory-locked-login">登录查看回忆</button>
+      </div>
+    </section>
+    <p class="gallery-error" id="gallery-error" role="status"></p>
+
+  </main>
+
+  <div class="memory-modal" id="memory-modal" hidden>
+    <div class="modal-backdrop" data-modal-close></div>
+    <article class="memory-dialog" role="dialog" aria-modal="true" aria-labelledby="detail-title" tabindex="-1">
+      <button class="modal-close" id="modal-close" type="button" aria-label="关闭详情">×</button>
+
+      <div class="detail-gallery">
+        <div class="detail-image-wrap">
+          <img id="detail-image" src="" alt="" decoding="async">
+          <button class="detail-original" id="detail-original" type="button" hidden>查看大图</button>
+          <button class="detail-remove-photo" id="detail-remove-photo" type="button" hidden>移除这张照片</button>
+          <span class="detail-photo-count" id="detail-photo-count"></span>
+        </div>
+        <div class="detail-controls">
+          <button id="detail-prev" type="button" aria-label="上一张照片">‹</button>
+          <div class="detail-thumbs" id="detail-thumbs" aria-label="这段回忆的全部照片"></div>
+          <button id="detail-next" type="button" aria-label="下一张照片">›</button>
+        </div>
+      </div>
+
+      <div class="detail-copy">
+        <p class="detail-date" id="detail-date"></p>
+        <h3 id="detail-title"></h3>
+        <section class="perspective-block" id="big-perspective-block">
+          <p class="perspective-label" id="big-perspective-label">大大布记得的</p>
+          <p class="detail-text" id="big-perspective-display"></p>
+          <form class="perspective-form" id="big-perspective-form" hidden>
+            <label for="big-perspective-text">大大布记得的</label>
+            <textarea id="big-perspective-text" rows="4" maxlength="2000" placeholder="那一天，你还记得什么？"></textarea>
+            <div class="perspective-save"><span id="big-perspective-status" role="status"></span></div>
+          </form>
+        </section>
+        <section class="perspective-block" id="little-perspective-block">
+          <p class="perspective-label" id="little-perspective-label">小小二记得的</p>
+          <p class="detail-text" id="little-perspective-display">还没有写下这一段回忆。</p>
+          <form class="perspective-form" id="little-perspective-form" hidden>
+            <label for="little-perspective-text">小小二记得的</label>
+            <textarea id="little-perspective-text" rows="4" maxlength="2000" placeholder="那一天，你还记得什么？"></textarea>
+            <div class="perspective-save"><span id="little-perspective-status" role="status"></span></div>
+          </form>
+        </section>
+        <div class="gallery-manage-actions" id="gallery-manage-actions" hidden>
+          <button class="small-btn" id="detail-edit-memory" type="button">修改回忆 / 添加照片</button>
+        </div>
+        <p class="perspective-login" id="perspective-login"><button type="button" id="perspective-login-button">登录后查看和编辑回忆文字</button></p>
+        <p class="detail-note"><span aria-hidden="true">✦</span> 这一小簇照片，共用这一段回忆</p>
+      </div>
+    </article>
+  </div>
+
+  <dialog class="gallery-editor" id="gallery-editor" aria-labelledby="gallery-editor-title">
+    <button class="sync-close" id="gallery-editor-close" type="button" aria-label="关闭编辑窗口">×</button>
+    <h2 id="gallery-editor-title">添加回忆</h2>
+    <form id="gallery-editor-form">
+      <label>日期 <input id="gallery-editor-date" type="date" required></label>
+      <label>标题 <input id="gallery-editor-name" type="text" maxlength="80" required></label>
+      <label>这段回忆 <textarea id="gallery-editor-body" rows="5" maxlength="2000" placeholder="写下这一段的故事"></textarea></label>
+      <label>添加照片 <input id="gallery-editor-files" type="file" accept="image/jpeg,image/png,image/webp" multiple></label>
+      <p class="gallery-editor-hint" id="gallery-editor-file-hint">可一次选择多张，选后逐张预览。红色照片无法上传，请移除；支持 JPG、PNG、WebP，每张不超过 10 MB。</p>
+      <p class="gallery-editor-file-status" id="gallery-editor-file-status" role="status"></p>
+      <div class="gallery-editor-previews" id="gallery-editor-previews" aria-label="待上传照片" hidden></div>
+      <div class="gallery-hidden-photos" id="gallery-hidden-photos" hidden></div>
+      <div class="gallery-editor-actions"><button class="small-btn" id="gallery-editor-submit" type="submit">保存并同步</button><span id="gallery-editor-status" role="status"></span></div>
+    </form>
+    <div class="gallery-editor-danger-group" id="gallery-editor-danger-group">
+      <button class="small-btn gallery-danger" id="detail-delete-memory" type="button" hidden>移出整段回忆</button>
+      <button class="small-btn gallery-purge-btn" id="detail-purge-memory" type="button" hidden>彻底删除回忆</button>
+    </div>
+    <div class="gallery-hidden-entries" id="gallery-hidden-entries" hidden></div>
+  </dialog>
+
+  <a class="egg-footer" href="easter-egg.html" title="嘘…" aria-label="彩蛋页入口">🐣</a>
+
+
+  <div id="hearts" aria-hidden="true"></div>
+
+  <script src="js/gate.js?v=922eb06e"></script>
+  <script src="js/vendor/supabase-2.118.0.min.js?v=31c3a326"></script>
+  <script src="js/sync.js?v=1a8b63b3"></script>
+  <script src="js/gallery-editor.js?v=8ea4b614"></script>
+  <script src="js/app.js?v=aa6f2de0"></script>
+</body>
+</html>
